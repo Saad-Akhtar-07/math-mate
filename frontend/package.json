@@ -1,0 +1,35 @@
+{
+  "name": "math-mate-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "test": "node --test src/api/*.test.js",
+    "test:voice": "vitest run src/voice-tests",
+    "test:questions": "vitest run src/data",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "katex": "^0.18.4",
+    "lucide-react": "^1.33.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@vitejs/plugin-react": "^6.1.0",
+    "jsdom": "^26.1.0",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}
