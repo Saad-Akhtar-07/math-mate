@@ -105,6 +105,17 @@
 .directory-question-description strong { color: var(--primary); font-size: 14px; }
 .directory-question-description small { color: var(--text-tertiary); font-size: 11px; }
 .subtopic-question-link > svg { color: var(--accent); }
+.subtopic-question-loading { min-height: 520px; }
+.question-loading-summary { min-height: 65px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.question-loading-summary::after, .question-loading-heading, .question-loading-row i { content: ''; display: block; height: 10px; border-radius: 5px; background: var(--surface-subtle); }
+.question-loading-summary::after { width: 48%; margin: 26px 17px; }
+.question-loading-list { display: grid; }
+.question-loading-heading { width: 170px; height: 17px; margin: 0 0 17px; }
+.question-loading-row { min-height: 70px; padding: 12px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 14px; }
+.question-loading-row i:first-child { width: 22px; }
+.question-loading-row i:nth-child(2) { width: min(55%, 360px); }
+.question-loading-row i:last-child { width: 18px; margin-left: auto; }
+.question-loading-row:last-child { border-bottom: 1px solid var(--border); }
 .directory-empty { margin: 30px 0; padding: 44px 25px; border: 1px dashed var(--border); border-radius: 10px; background: var(--surface); text-align: center; }
 .directory-empty > svg { color: var(--accent); }
 .directory-empty h2 { margin: 10px 0 5px; color: var(--primary); }
@@ -115,6 +126,13 @@
 .practice-shell .practice-heading { padding-bottom: 12px; border-bottom: 0; }
 .practice-shell .practice-heading h1 { font-weight: 700; letter-spacing: -.04em; }
 .practice-shell .practice-filters { margin: 12px 0 16px; padding: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.practice-filter-loading-heading, .practice-filter-loading-control span, .question-picker-loading i { display: block; border-radius: 5px; background: var(--surface-subtle); }
+.practice-filter-loading-heading { width: 130px; height: 18px; }
+.practice-filter-loading-control { display: grid; gap: 7px; }
+.practice-filter-loading-control span:first-child { width: 65px; height: 10px; }
+.practice-filter-loading-control span:last-child { height: 39px; border: 1px solid var(--border); background: var(--background); }
+.question-picker-loading { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.question-picker-loading i { width: 38px; height: 38px; border: 1px solid var(--border); }
 .practice-filter-heading { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .practice-filter-heading h2 { margin: 0; color: var(--primary); font-size: 18px; }
 .practice-filter-heading strong { color: var(--text-tertiary); font-size: 12px; }

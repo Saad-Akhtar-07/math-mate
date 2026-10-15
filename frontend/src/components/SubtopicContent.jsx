@@ -14,13 +14,22 @@ export default function SubtopicContent({ subtopic, questions = [], loading = fa
     return `/topic/${topicNumber}/practice?${params}`
   }
 
-  return <article className="subtopic-content question-directory-page">
+  return <article className="subtopic-content question-directory-page" aria-busy={loading}>
     <header className="detail-heading">
       <p>{subtopic.code}</p>
       <h1>{subtopic.title}</h1>
       <span>{loading ? 'Loading questions.' : error ? 'Questions could not be loaded.' : questions.length ? 'Choose a question to begin practising.' : 'Questions for this subtopic are coming soon.'}</span>
     </header>
-    {questions.length ? <>
+    {loading ? <div className="subtopic-question-loading" role="status" aria-label="Loading questions">
+      <div className="subtopic-question-summary" aria-hidden="true">
+        <span className="question-loading-summary" /><span className="question-loading-summary" />
+      </div>
+      <div className="question-loading-list" aria-hidden="true">
+        <span className="question-loading-heading" />
+        {Array.from({ length: 5 }, (_, index) => <span className="question-loading-row" key={index}><i /><i /><i /></span>)}
+      </div>
+      <span className="sr-only">Loading questions from the question bank.</span>
+    </div> : questions.length ? <>
       <div className="subtopic-question-summary">
         {groups.map((group) => <Link to={practicePath(null, group.key)} key={group.key}><span>{group.title} ({group.questions.length} {group.questions.length === 1 ? 'question' : 'questions'})</span><ArrowRight size={17} /></Link>)}
       </div>

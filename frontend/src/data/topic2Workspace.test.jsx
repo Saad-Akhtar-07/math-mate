@@ -23,6 +23,15 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
+test('subtopic shows a stable question list placeholder while content loads', () => {
+  const subtopic = syllabus.find((topic) => topic.number === '2').subtopics.find((item) => item.code === '2.6')
+  render(<MemoryRouter><SubtopicContent subtopic={subtopic} loading /></MemoryRouter>)
+
+  expect(screen.getByRole('status', { name: 'Loading questions' })).toBeTruthy()
+  expect(document.querySelectorAll('.question-loading-row')).toHaveLength(5)
+  expect(screen.queryByText('No questions yet')).toBeNull()
+})
+
 test('subtopic sections count their questions and include the 2022 papers', async () => {
   const subtopic = syllabus.find((topic) => topic.number === '2').subtopics.find((item) => item.code === '2.8')
   const nonCalculatorCount = getSubtopicQuestions('2.8').filter((question) => !question.paper.calculatorAllowed).length

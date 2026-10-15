@@ -5,8 +5,11 @@ import '@fontsource/atkinson-hyperlegible/latin-400.css'
 import '@fontsource/atkinson-hyperlegible/latin-700.css'
 import 'katex/dist/katex.min.css'
 import App from './App.jsx'
+import { preloadQuestionContent } from './api/content.js'
 import './index.css'
 import './MathMate.css'
+
+preloadQuestionContent()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -927,6 +927,12 @@ export default function QuestionPracticePage() {
       <nav className="breadcrumbs" aria-label="Breadcrumb"><ol><li><Link to="/">Topics</Link></li><li><ChevronRight size={14} /></li><li><Link to={`/topic/${topic.number}`}>{topic.title}</Link></li><li><ChevronRight size={14} /></li><li><span aria-current="page">Practice</span></li></ol></nav>
       </div>
       <header className="practice-heading"><div><p>{topic.title.toUpperCase()}</p><h1>Practice questions</h1><span>{summary}</span></div><BookOpenCheck size={32} /></header>
+      {isLoading && !hasQuestions && <section className="practice-filters practice-filters-loading" aria-hidden="true">
+        <div className="practice-filter-heading"><span className="practice-filter-loading-heading" /></div>
+        <div className="practice-filter-controls">
+          {Array.from({ length: 3 }, (_, index) => <div className="practice-filter-loading-control" key={index}><span /><span /></div>)}
+        </div>
+      </section>}
       {hasQuestions && <section className="practice-filters" aria-label="Filter questions">
         <div className="practice-filter-heading"><h2>Find a question</h2></div>
         <div className="practice-filter-controls">
@@ -940,7 +946,7 @@ export default function QuestionPracticePage() {
         <div>{visibleQuestions.length ? <><button type="button" className="number-nav-arrow" aria-label="Previous question" onClick={() => moveTo(selectedIndex - 1)} disabled={selectedIndex === 0}><ChevronLeft size={17} /></button>{navigationQuestions.map((item, index) => {
           const number = navigationStart + index + 1
           return <button type="button" key={item.id} className={number === selectedIndex + 1 ? 'active' : ''} aria-label={`Question ${number}: ${item.title}`} aria-current={number === selectedIndex + 1 ? 'step' : undefined} onClick={() => moveTo(number - 1)}>{number}</button>
-        })}<button type="button" className="number-nav-arrow" aria-label="Next question" onClick={() => moveTo(selectedIndex + 1)} disabled={selectedIndex === visibleQuestions.length - 1}><ChevronRight size={17} /></button></> : <span className="question-picker-empty"><CircleDashed size={16} /> {isLoading ? 'Loading questions…' : hasQuestions ? 'No questions match these filters.' : 'No questions available yet'}</span>}</div>
+        })}<button type="button" className="number-nav-arrow" aria-label="Next question" onClick={() => moveTo(selectedIndex + 1)} disabled={selectedIndex === visibleQuestions.length - 1}><ChevronRight size={17} /></button></> : isLoading ? <span className="question-picker-loading" aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</span> : <span className="question-picker-empty"><CircleDashed size={16} /> {hasQuestions ? 'No questions match these filters.' : 'No questions available yet'}</span>}</div>
       </nav>
       {responseLoadError && <div className="response-load-warning" role="alert">Saved work could not be restored: {responseLoadError}</div>}
       <div

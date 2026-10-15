@@ -15,6 +15,7 @@ vi.mock('../api/content.js', () => ({
     }],
   }),
   getQuestionCount: vi.fn().mockResolvedValue(1),
+  getQuestionSummary: vi.fn().mockResolvedValue({ topic_counts: { 8: 1 }, subtopic_counts: {} }),
   getQuestionPartSolution: vi.fn(),
 }))
 vi.mock('../api/submissions.js', async importOriginal => ({

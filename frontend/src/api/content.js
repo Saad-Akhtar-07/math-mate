@@ -52,6 +52,19 @@ export function getQuestionSummary() {
   return cachedFetch(questionSummaryCache, 'all', '/questions/summary')
 }
 
+export function preloadQuestionContent() {
+  // Topic 2 is the current question bank. Start its download alongside the
+  // summary, then pick up any topics added to the database later.
+  void getQuestionBank('2').catch(() => {})
+  void getQuestionSummary()
+    .then((summary) => {
+      for (const [topicCode, count] of Object.entries(summary?.topic_counts || {})) {
+        if (count > 0 && topicCode !== '2') void getQuestionBank(topicCode).catch(() => {})
+      }
+    })
+    .catch(() => {})
+}
+
 export async function getQuestionCount(topicNumber) {
   const summary = await getQuestionSummary()
   return summary.topic_counts[String(topicNumber)] || 0

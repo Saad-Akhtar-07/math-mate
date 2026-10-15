@@ -35,7 +35,7 @@ The root `data/` question files and unused frontend JSON notes/questions are ign
 4. In Vercel, import the same repository with **Root Directory** set to `frontend`. Set the production environment variable `VITE_API_URL=https://<your-render-host>` with no trailing slash. Deploy, then confirm that a topic loads questions and a deep link such as `/topic/2/practice` opens on refresh.
 5. If the frontend is blocked by CORS, set `MATH_MATE_CORS_ORIGINS` in Render to the deployed Vercel origin and redeploy the backend. Add comma-separated origins if you also need preview domains.
 
-Render's Free service sleeps after 15 minutes without traffic, and the first API request can take about a minute. The production question client allows 90 seconds for that wake-up. Use a paid Render instance if the site must respond promptly at all times. Supabase connection values belong only in Render's server-side environment variables; `VITE_API_URL` is a public backend URL, not a database credential.
+Render's Free service sleeps after 15 minutes without traffic, and the first API request can take about a minute. The production question client allows 90 seconds for that wake-up. On page entry, the frontend starts fetching the question summary and Topic 2 bank; later navigation reuses those in-memory requests. Subtopic and practice pages hold their question area with loading placeholders. Direct links can still wait for a cold backend. Use a paid Render instance if the site must respond promptly at all times. Supabase connection values belong only in Render's server-side environment variables; `VITE_API_URL` is a public backend URL, not a database credential.
 
 ## Check the Supabase database connection
 
