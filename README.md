@@ -27,6 +27,8 @@ Vite proxies `/api` to `http://localhost:8000`. For a separately hosted frontend
 
 The browser calls FastAPI; FastAPI reads Supabase PostgreSQL. The included [`render.yaml`](render.yaml) configures a Render web service for `backend/`, and [`frontend/vercel.json`](frontend/vercel.json) keeps React Router links working on Vercel.
 
+The root `data/` question files and unused frontend JSON notes/questions are ignored by Git because the deployed app reads questions from Supabase. Keep `frontend/src/data/syllabus.js` and `frontend/src/data/localDrafts.js` in Git: the React build imports those modules. A broad ignore rule such as `data` also hides `frontend/src/data/` and breaks the Vercel build.
+
 1. Put this project in a Git repository connected to Render and Vercel. The project root contains `render.yaml`; keep `.env` out of the repository.
 2. In Render, create a **Blueprint** from that repository. Supply `SUPABASE_DB_HOST`, `SUPABASE_DB_USER`, and `SUPABASE_DB_PASSWORD` from Supabase **Connect → Session pooler**. The host is the pooler hostname and the user has the form `postgres.<project-ref>`. The Blueprint sets port `5432` and database `postgres`. Set `MATH_MATE_CORS_ORIGINS` to the exact Vercel frontend origin, for example `https://math-mate.vercel.app` (no trailing slash). If the final Vercel URL is not known yet, update this variable after deploying Vercel.
 3. Check `https://<your-render-host>/api/v1/health` for `{"status":"ok"}`. Then check `/api/v1/questions/summary` for question counts. The Blueprint only starts the API; it does not create tables or import questions again.
