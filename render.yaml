@@ -6,7 +6,7 @@ services:
     region: singapore
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health
     envVars:
       - key: SUPABASE_DB_HOST
@@ -21,3 +21,9 @@ services:
         sync: false
       - key: MATH_MATE_CORS_ORIGINS
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: MATH_MATE_STORAGE_BUCKET
+        value: math-mate-solutions

@@ -4,12 +4,14 @@ Math Mate is a React frontend and a FastAPI question-bank API for Cambridge O Le
 
 ## Run locally
 
-Create `.env` from `.env.example` and fill in the server-side Supabase PostgreSQL connection details. Then, from the project root, install and start the backend:
+Create `.env` from `.env.example` and fill in the server-side Supabase PostgreSQL connection details. For solution photos, also set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (or the legacy `SUPABASE_SERVICE_ROLE_KEY`). These keys stay on the backend. The storage setup command below creates a private `math-mate-solutions` bucket; omit it when running without photo uploads. Then, from the project root, install and start the backend:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
-.\.venv\Scripts\python.exe -m uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m backend.scripts.migrate --apply
+.\.venv\Scripts\python.exe -m backend.scripts.setup_storage --apply
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
 ```
 
 In another terminal, from `frontend/`:
@@ -48,19 +50,21 @@ This check connects directly to PostgreSQL and runs `SELECT 1`. It does not crea
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
-.\.venv\Scripts\python.exe backend/check_db.py
+.\.venv\Scripts\python.exe -m backend.scripts.check_db
 ```
 
 The script prints `Database healthy` when it can connect and query PostgreSQL. It exits with an error when configuration, authentication, network access, or the database query fails. `.env` is ignored by Git; do not put the password in the React frontend.
 
 ## Current scope
 
-- Curated JSON files in `data/` are the reviewed source material. `backend/import_questions.py` validates and upserts them into Supabase; the frontend fetches its question counts, questions, and mark schemes through FastAPI.
+- Curated JSON files in `data/` are the reviewed source material. `backend/scripts/import_questions.py` validates and upserts them into Supabase; the frontend fetches its question counts, questions, and mark schemes through FastAPI.
 - Questions can be browsed by subtopic and filtered by calculator or non-calculator paper. A question may appear in more than one subtopic if its parts assess multiple skills.
-- The practice workspace renders equations, tables, graphs, diagrams and mark schemes from database-backed API responses. Text answers still save in this browser's local storage.
+- The practice workspace renders equations, tables, graphs, diagrams and mark schemes from database-backed API responses. Guest text answers auto-save to Supabase after a pause. Students can submit each part and view earlier submitted answers; later edits preserve those attempts. Browser storage keeps a recovery copy until the server confirms the save.
+- Guest credentials stay in the same browser and expire after 90 days. Clearing browser storage removes access; account sign-in and recovery come later. Conflicting local/server drafts require a choice before replacement.
 - Graph labels placed on a point or plotted line are moved to nearby clear space and drawn with a background outline. Labels already positioned away from a line keep their source coordinates.
 - For a crowded graph that needs editorial placement, a graph label can specify an `offset` such as `[12, -16]` in SVG pixels. The renderer checks that offsets contain two finite numbers, and the question tests check that the result stays inside the SVG.
-- Topics without imported questions show an empty state. The AI tutor and photo upload controls remain disabled until their separate backend services are implemented.
+- Students can attach up to four JPEG, PNG or WebP solution pages per answer (10 MB per original). The backend compresses each page separately into a private Supabase Storage object. Image-only answers can be submitted, and submitted pages remain viewable after removing them from a later draft. No merging or AI processing runs. Upload controls enable when server Storage settings are present; the AI tutor remains disabled.
+- Photo uploads show individual progress and wait for save confirmation. Failed and waiting photos can be retried without reselecting them while the practice page stays open; saved pages are preserved. Retry checks and server deduplication prevent duplicate pages after a lost confirmation. Resolve or remove unfinished photos before submitting.
 
 ## Checks
 
@@ -69,8 +73,14 @@ From `frontend/`, run `npm run build`, `npm run test:questions`, `npm run test:v
 Run `npm run test:questions` after adding JSON papers. It checks that imported blocks render and graph labels stay inside the SVG viewport; the labelled distance–time graph is a regression case for text overlapping a line.
 Keep `caption` and diagram label text student-facing. The question tests also reject internal source-paper wording and corrupted characters in rendered blocks. Use `display_view_box` on a `pattern_sequence` when its symbols need a tighter, shared view across panels.
 
-The frontend needs the FastAPI server and Supabase connection to browse questions. Its `src/api/` modules also contain clients for future learner-session and voice services.
+The frontend needs the FastAPI server and Supabase connection to browse questions and save guest work. Its `src/api/` modules also retain clients for future tutor and voice services; those capabilities remain disabled.
 
 ## Database design
 
-The Supabase PostgreSQL schema is documented in [`docs/database-schema.md`](docs/database-schema.md), with executable SQL in [`supabase/migrations/`](supabase/migrations/). It keeps all curated questions in one table while preserving their nested JSON. The first migration has been applied and 181 questions have been imported.
+The Supabase PostgreSQL schema is documented in [`docs/database-schema.md`](docs/database-schema.md), including the comparison with the hackathon app. Executable SQL lives in [`supabase/migrations/`](supabase/migrations/). Curated questions retain their nested JSON; relational part identities connect them to learners, editable drafts and submitted snapshots.
+
+Run `python -m backend.scripts.migrate` for a read-only migration plan or add `--apply` to apply pending changes transactionally. Apply migrations before deploying the learner-enabled API; the Render start command does not migrate. See the schema document for deployment paths, connection-pool sizing and rollback-only backend integration tests.
+
+Unused upload files can be reviewed with `python -m backend.scripts.cleanup_storage` and removed with `--apply` after a 24-hour grace period. Active draft pages and submitted pages are retained. See the schema document for image validation, storage credentials, cleanup behavior and deployment settings.
+
+The [backend development guide](backend/README.md) explains the package layout, service boundaries and administrative commands.

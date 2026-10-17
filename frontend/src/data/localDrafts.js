@@ -27,3 +27,17 @@ export function saveDraft(topicNumber, partId, typedWork) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
   return { question_part_id: partId, typed_work: typedWork, attachments: [], revision: 1 }
 }
+
+export function removeDraft(topicNumber, partId, expectedWork) {
+  const all = readAllDrafts()
+  const key = String(topicNumber)
+  // A save in one tab must not erase a newer recovery copy from another tab.
+  if (all[key] && Object.hasOwn(all[key], partId) && all[key][partId] !== expectedWork) return
+  if (all[key]) delete all[key][partId]
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
+  if (key === '2') {
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_TOPIC_2_KEY) || '{}')
+    delete legacy[partId]
+    localStorage.setItem(LEGACY_TOPIC_2_KEY, JSON.stringify(legacy))
+  }
+}

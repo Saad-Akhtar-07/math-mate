@@ -2,14 +2,14 @@
 
 import argparse
 import json
-from pathlib import Path
 
 from psycopg.types.json import Jsonb
 
-from db import connect
+from ..app.db.connection import connect
+from ..app.core.config import PROJECT_ROOT
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = PROJECT_ROOT
 DATA_DIR = ROOT / "data"
 MIGRATION = ROOT / "supabase/migrations/20261015000000_question_bank.sql"
 TOPIC_BY_NAME = {"algebra and graphs": "2"}

@@ -22,23 +22,28 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import InlineContent from '../components/notes/InlineContent.jsx'
 import ContentBlockRenderer from '../components/question-renderer/ContentBlockRenderer.jsx'
 import ReaderShell from '../components/ReaderShell.jsx'
+import SolutionImage from '../components/SolutionImage.jsx'
+import SolutionUploadQueue from '../components/SolutionUploadQueue.jsx'
 import { getQuestionBank, getQuestionPartSolution } from '../api/content.js'
 import {
-  attachmentContentUrl,
   getStudentResponses,
+  getStudentResponse,
   getTutorChatTurns,
   getTutorReviews,
   removeSolutionImage,
   requestTutorReview,
   saveStudentResponse,
+  submitStudentResponse,
+  getResponseSubmissions,
   sendTutorChatMessage,
   uploadSolutionImage,
 } from '../api/submissions.js'
 import { syllabus } from '../data/syllabus.js'
-import { readDrafts, saveDraft } from '../data/localDrafts.js'
+import { readDrafts, saveDraft, removeDraft } from '../data/localDrafts.js'
 import NotFound from './NotFound.jsx'
 import useVoiceInput from '../hooks/useVoiceInput.js'
 import useTutorSpeech from '../hooks/useTutorSpeech.js'
+import useSolutionUploads from '../hooks/useSolutionUploads.js'
 import { VoiceInput, VoicePreferences, VoiceStatus, ReadAloud } from '../components/TutorVoice.jsx'
 import './PracticeWorkspace.css'
 
@@ -112,11 +117,14 @@ function QuestionBlock({ block }) {
   return <ContentBlockRenderer block={block} />
 }
 
-function AnswerComposer({ part, value, attachments, saveState, saveMessage, onChange, onSave, onUpload, onRemoveAttachment, localDraftOnly = false }) {
+function AnswerComposer({ part, value, attachments, saveState, saveMessage, onChange, onSave, onSubmit, submitted, ready = true, uploadsEnabled = false, onUpload, onRemoveAttachment, localDraftOnly = false, uploadQueue = [], uploadBusy, uploadBlocked, onRetryUpload, onDiscardUpload }) {
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
+  const pendingPhotos = uploadQueue.filter((item) => item.status !== 'saved').length
+  const hasUploadError = uploadQueue.some((item) => item.status === 'failed' && item.error === saveMessage)
 
   const insertMaths = (tool) => {
+    if (!ready) return
     const textarea = textareaRef.current
     const start = textarea?.selectionStart ?? value.length
     const end = textarea?.selectionEnd ?? value.length
@@ -155,12 +163,12 @@ function AnswerComposer({ part, value, attachments, saveState, saveMessage, onCh
       <span>{value.trim() ? 'Draft added' : 'Show your method'}</span>
     </div>
     <div className="answer-entry">
-      <textarea ref={textareaRef} id={`${part.id}-answer`} rows="4" maxLength="20000" spellCheck="false" value={value} onChange={(event) => onChange(event.target.value)} placeholder="Write each step here…" />
+      <textarea ref={textareaRef} id={`${part.id}-answer`} rows="4" maxLength="20000" spellCheck="false" disabled={!ready} value={value} onChange={(event) => onChange(event.target.value)} placeholder="Write each step here…" />
       {part.answer_suffix && <span className="answer-suffix">{part.answer_suffix}</span>}
     </div>
     <div className="maths-toolbar" aria-label="Maths input tools">
       <span>Maths tools</span>
-      <div>{mathsTools.map((tool) => <button type="button" key={tool.id} title={tool.name} aria-label={tool.name} onClick={() => insertMaths(tool)}>{tool.label}</button>)}</div>
+      <div>{mathsTools.map((tool) => <button type="button" key={tool.id} disabled={!ready} title={tool.name} aria-label={tool.name} onClick={() => insertMaths(tool)}>{tool.label}</button>)}</div>
       <small>Keyboard: / for fractions · ^ for powers</small>
     </div>
     <div className="solution-input-footer">
@@ -169,6 +177,8 @@ function AnswerComposer({ part, value, attachments, saveState, saveMessage, onCh
           ref={fileInputRef}
           className="sr-only"
           type="file"
+          aria-label="Upload solution pages"
+          disabled={!ready || !uploadsEnabled || attachments.length + pendingPhotos >= 4}
           accept="image/jpeg,image/png,image/webp"
           multiple
           onChange={(event) => {
@@ -177,29 +187,74 @@ function AnswerComposer({ part, value, attachments, saveState, saveMessage, onCh
             event.target.value = ''
           }}
         />
-        <button type="button" className="attach-solution-button" onClick={() => fileInputRef.current?.click()} disabled={localDraftOnly || saveState === 'uploading'} title={localDraftOnly ? 'Photo uploads are coming later' : undefined}>
+        <button type="button" className="attach-solution-button" onClick={() => fileInputRef.current?.click()} disabled={!ready || !uploadsEnabled || localDraftOnly || attachments.length + pendingPhotos >= 4 || saveState === 'uploading'} title={!uploadsEnabled || localDraftOnly ? 'Photo uploads are coming later' : 'JPEG, PNG or WebP. Up to 4 pages, 10 MB per original.'}>
           {saveState === 'uploading' ? <LoaderCircle className="spin" size={16} /> : <Camera size={16} />}
           Add solution photo
         </button>
-        <button type="button" className="save-solution-button" onClick={onSave} disabled={saveState === 'saving' || saveState === 'uploading'}>
+        <button type="button" className="save-solution-button" onClick={onSave} disabled={!ready || saveState === 'saving' || saveState === 'submitting' || saveState === 'uploading'}>
           {saveState === 'saving' ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />}
           Save work
         </button>
+        {!localDraftOnly && onSubmit && <button type="button" className="save-solution-button" onClick={onSubmit} disabled={!ready || pendingPhotos > 0 || (!value.trim() && !attachments.length) || submitted || saveState === 'submitting'}>
+          {saveState === 'submitting' ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />}
+          {submitted ? 'Submitted' : 'Submit answer'}
+        </button>}
       </div>
-      <span className={`solution-save-status ${saveState === 'error' ? 'is-error' : ''}`} role={saveState === 'error' ? 'alert' : 'status'}>
+      {!hasUploadError && <span className={`solution-save-status ${saveState === 'error' ? 'is-error' : ''}`} role={saveState === 'error' ? 'alert' : 'status'}>
         {saveMessage || (saveState === 'saved' ? (localDraftOnly ? 'Saved on this device' : 'Saved securely') : saveState === 'saving' ? 'Saving…' : 'Text auto-saves after you pause')}
-      </span>
+      </span>}
     </div>
+    {uploadsEnabled && <p className="solution-page-limit">{attachments.length} / 4 pages</p>}
+    <SolutionUploadQueue items={uploadQueue} busy={uploadBusy} blocked={uploadBlocked} onRetry={onRetryUpload} onRemove={onDiscardUpload} />
     {attachments.length > 0 && <div className="solution-attachments" aria-label="Attached solution images">
       {attachments.map((attachment) => <figure key={attachment.id}>
-        <img src={attachmentContentUrl(attachment.content_url)} alt={`Attached working: ${attachment.original_filename}`} />
-        <figcaption><span title={attachment.original_filename}>{attachment.original_filename}</span><button type="button" aria-label={`Remove ${attachment.original_filename}`} onClick={() => onRemoveAttachment(attachment.id)}><Trash2 size={14} /></button></figcaption>
+        <SolutionImage fileId={attachment.file_id} filename={attachment.original_filename} pageNumber={attachment.position} />
+        <figcaption><span title={attachment.original_filename}>Page {attachment.position}</span><button type="button" disabled={!ready} aria-label={`Remove ${attachment.original_filename}`} onClick={() => onRemoveAttachment(attachment.id)}><Trash2 size={14} /></button></figcaption>
       </figure>)}
     </div>}
   </div>
 }
 
-function QuestionPart({ part, answer, attachments, saveState, saveMessage, tutorBusy, tutorError, isActive, onAnswerChange, onSave, onUpload, onRemoveAttachment, onActivate, onTutorRequest, localDraftOnly = false }) {
+function SubmissionHistory({ partId, submitted }) {
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState([])
+  const [cursor, setCursor] = useState(null)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    if (!open) return undefined
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    getResponseSubmissions(partId).then((data) => {
+      if (!cancelled) { setItems(data.submissions); setCursor(data.next_cursor) }
+    }).catch((failure) => { if (!cancelled) setError(failure.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [open, partId, submitted])
+  const loadMore = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const data = await getResponseSubmissions(partId, cursor)
+      setItems((current) => [...current, ...data.submissions])
+      setCursor(data.next_cursor)
+    } catch (failure) { setError(failure.message) }
+    finally { setLoading(false) }
+  }
+  return <div className="submission-history">
+    <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? 'Hide submitted answers' : 'View submitted answers'}</button>
+    {open && <div>{error && <p role="alert">{error}</p>}{loading && <p role="status">Loading submitted answers…</p>}
+      {!loading && !items.length && !error && <p>No submitted answers yet.</p>}
+      {items.map((item) => <article key={item.id}><small>Submitted {new Date(item.submitted_at).toLocaleString()}</small>{item.typed_work && <pre>{item.typed_work}</pre>}
+        {!!item.attachments?.length && <div className="solution-attachments" aria-label="Submitted solution pages">{item.attachments.map((page) => <figure key={page.file_id}><SolutionImage fileId={page.file_id} filename={page.original_filename} pageNumber={page.position} /><figcaption>Page {page.position}</figcaption></figure>)}</div>}
+      </article>)}
+      {cursor && <button type="button" disabled={loading} onClick={loadMore}>Load earlier answers</button>}
+    </div>}
+  </div>
+}
+
+function QuestionPart({ part, answer, attachments, saveState, saveMessage, tutorBusy, tutorError, isActive, onAnswerChange, onSave, onSubmit, submitted, ready, aiEnabled = true, uploadsEnabled, onUpload, onRemoveAttachment, onActivate, onTutorRequest, localDraftOnly = false, uploadQueue, uploadBusy, uploadBlocked, onRetryUpload, onDiscardUpload }) {
   const [showScheme, setShowScheme] = useState(false)
   const [scheme, setScheme] = useState(null)
   const [schemeState, setSchemeState] = useState('idle')
@@ -224,11 +279,12 @@ function QuestionPart({ part, answer, attachments, saveState, saveMessage, tutor
   return <section className={`question-part ${isActive ? 'is-active' : ''}`} onFocusCapture={onActivate}>
     <div className="question-part-heading"><span>{part.label}</span><strong>{part.marks} {part.marks === 1 ? 'mark' : 'marks'}</strong></div>
     <div className="question-part-prompt">{part.prompt.map((block, index) => <QuestionBlock block={block} key={index} />)}</div>
-    <AnswerComposer part={part} value={answer} attachments={attachments} saveState={saveState} saveMessage={saveMessage} onChange={onAnswerChange} onSave={onSave} onUpload={onUpload} onRemoveAttachment={onRemoveAttachment} localDraftOnly={localDraftOnly} />
+    <AnswerComposer part={part} value={answer} attachments={attachments} saveState={saveState} saveMessage={saveMessage} onChange={onAnswerChange} onSave={onSave} onSubmit={onSubmit} submitted={submitted} ready={ready} uploadsEnabled={uploadsEnabled} onUpload={onUpload} onRemoveAttachment={onRemoveAttachment} localDraftOnly={localDraftOnly} uploadQueue={uploadQueue} uploadBusy={uploadBusy} uploadBlocked={uploadBlocked} onRetryUpload={onRetryUpload} onDiscardUpload={onDiscardUpload} />
+    {!localDraftOnly && onSubmit && <SubmissionHistory partId={part.id} submitted={submitted} />}
     <div className="question-help-row">
       <div className="tutor-actions">
-        <button type="button" className="hint-button" disabled={localDraftOnly || tutorBusy} onClick={() => onTutorRequest('hint', part, answer)}><Lightbulb size={17} /> Give me a hint</button>
-        <button type="button" className="check-ai-button" disabled={localDraftOnly || tutorBusy || saveState === 'uploading'} onClick={() => onTutorRequest('check', part, answer)}><Sparkles size={17} /> Check with AI</button>
+        <button type="button" className="hint-button" disabled={!aiEnabled || localDraftOnly || tutorBusy} onClick={() => onTutorRequest('hint', part, answer)}><Lightbulb size={17} /> Give me a hint</button>
+        <button type="button" className="check-ai-button" disabled={!aiEnabled || localDraftOnly || tutorBusy || saveState === 'uploading'} onClick={() => onTutorRequest('check', part, answer)}><Sparkles size={17} /> Check with AI</button>
       </div>
       <button type="button" className={`mark-scheme-toggle ${showScheme ? 'is-open' : ''}`} aria-expanded={showScheme} aria-controls={schemeId} onClick={toggleScheme}>{showScheme ? <EyeOff size={17} /> : <Eye size={17} />}{showScheme ? 'Hide mark scheme' : 'Mark scheme'}</button>
     </div>
@@ -273,7 +329,7 @@ function AiTutorPanel({ topic, question, displayNumber, activePart, reviews, rev
   const voiceInput = useVoiceInput(activePart.id, speech.stop)
   const awaitingVoice = useRef(new Set())
   const messageEndRef = useRef(null)
-  const isEmpty = Boolean(question.isPlaceholder || question.localDraftOnly)
+  const isEmpty = Boolean(question.isPlaceholder || question.localDraftOnly || question.capabilities?.aiTutor === false)
   const partReviews = reviews.filter((review) => review.question_part_id === activePart.id)
   const partTurns = chatTurns.filter((turn) => turn.question_part_id === activePart.id)
   const isReviewing = reviewState === 'reviewing' || partReviews.some((review) => ['pending', 'processing'].includes(review.status))
@@ -467,6 +523,7 @@ export default function QuestionPracticePage() {
   const questions = questionBank?.questions || []
   const hasQuestions = questions.length > 0
   const usesLocalDrafts = questions.some((item) => item.localDraftOnly)
+  const aiEnabled = questions.some((item) => !item.localDraftOnly && item.capabilities?.aiTutor !== false)
   const subtopicFilter = searchParams.get('subtopic') || 'all'
   const paperFilter = searchParams.get('paper') || 'all'
   const searchQuery = searchParams.get('q') || ''
@@ -487,6 +544,10 @@ export default function QuestionPracticePage() {
   const [saveStates, setSaveStates] = useState({})
   const [saveMessages, setSaveMessages] = useState({})
   const [responseLoadError, setResponseLoadError] = useState('')
+  const [responsesReady, setResponsesReady] = useState(false)
+  const [submittedParts, setSubmittedParts] = useState({})
+  const [pageMutations, setPageMutations] = useState({})
+  const [conflicts, setConflicts] = useState({})
   const [activePartId, setActivePartId] = useState('')
   const [reviews, setReviews] = useState([])
   const [reviewStates, setReviewStates] = useState({})
@@ -497,6 +558,9 @@ export default function QuestionPracticePage() {
   const [tutorPanelMaxWidth, setTutorPanelMaxWidth] = useState(MAX_TUTOR_WIDTH)
   const [isResizingTutor, setIsResizingTutor] = useState(false)
   const answersRef = useRef({})
+  const revisionsRef = useRef(new Map())
+  const conflictsRef = useRef(new Set())
+  const restoreFailedRef = useRef(false)
   const saveTimersRef = useRef(new Map())
   const saveVersionsRef = useRef(new Map())
   const saveQueuesRef = useRef(new Map())
@@ -509,6 +573,33 @@ export default function QuestionPracticePage() {
   const isResizingTutorRef = useRef(false)
   const question = hasQuestions ? (visibleQuestions[selectedIndex] || visibleQuestions[0] || emptyQuestion) : emptyQuestion
   const activePart = question.parts.find((part) => part.id === activePartId) || question.parts[0]
+
+  const photoUploads = useSolutionUploads({
+    scope: topicNumber,
+    attachments,
+    canStart: (partId) => responsesReady && !restoreFailedRef.current && !busyPartsRef.current.has(partId) && !conflictsRef.current.has(partId),
+    onBusy: (partId, busy) => {
+      if (busy) busyPartsRef.current.add(partId)
+      else busyPartsRef.current.delete(partId)
+      setPageMutations((current) => ({ ...current, [partId]: busy }))
+    },
+    prepare: async (partId) => {
+      clearTimeout(saveTimersRef.current.get(partId))
+      saveTimersRef.current.delete(partId)
+      await persistAnswer(partId, answersRef.current[partId] || '')
+      setSaveStates((current) => ({ ...current, [partId]: 'uploading' }))
+      setSaveMessages((current) => ({ ...current, [partId]: 'Saving photos…' }))
+    },
+    send: (partId, file, options) => applyPageMutation(partId,
+      (revision) => uploadSolutionImage(partId, file, revision, options), options.signal),
+    read: (partId, options) => applyPageMutation(partId,
+      () => getStudentResponse(partId, options), options.signal),
+    onError: (partId, error) => pageMutationError(partId, error),
+    onComplete: (partId, response) => {
+      setSaveStates((current) => ({ ...current, [partId]: 'saved' }))
+      setSaveMessages((current) => ({ ...current, [partId]: `${response.attachments.length} solution page${response.attachments.length === 1 ? '' : 's'} saved` }))
+    },
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -536,6 +627,13 @@ export default function QuestionPracticePage() {
     setSaveStates({})
     setSaveMessages({})
     setResponseLoadError('')
+    setResponsesReady(false)
+    setSubmittedParts({})
+    setPageMutations({})
+    setConflicts({})
+    revisionsRef.current.clear()
+    conflictsRef.current.clear()
+    restoreFailedRef.current = false
     setActivePartId('')
     setReviews([])
     setReviewStates({})
@@ -549,34 +647,60 @@ export default function QuestionPracticePage() {
     if (!questionBank?.questions?.length) return undefined
     const storedContent = usesLocalDrafts
       ? Promise.resolve([Object.entries(readDrafts(topic.number)).map(([id, typed_work]) => ({ question_part_id: id, typed_work, attachments: [] })), [], []])
-      : Promise.all([getStudentResponses(topic.number), getTutorReviews(topic.number), getTutorChatTurns(topic.number)])
+      : Promise.all([getStudentResponses(topic.number), aiEnabled ? getTutorReviews(topic.number) : [], aiEnabled ? getTutorChatTurns(topic.number) : []])
     storedContent
       .then(([responses, restoredReviews, restoredChatTurns]) => {
         if (cancelled) return
         const restoredAnswers = {}
         const restoredAttachments = {}
         const restoredStates = {}
+        const restoredSubmitted = {}
+        const restoredConflicts = {}
+        const local = readDrafts(topic.number)
         responses.forEach((response) => {
           restoredAnswers[response.question_part_id] = response.typed_work
           restoredAttachments[response.question_part_id] = response.attachments
           restoredStates[response.question_part_id] = 'saved'
+          revisionsRef.current.set(response.question_part_id, response.revision)
+          restoredSubmitted[response.question_part_id] = Boolean(response.submitted)
+          if (!usesLocalDrafts && Object.hasOwn(local, response.question_part_id) && local[response.question_part_id] !== response.typed_work) {
+            conflictsRef.current.add(response.question_part_id)
+            restoredConflicts[response.question_part_id] = response
+            restoredSubmitted[response.question_part_id] = false
+          }
         })
-        answersRef.current = { ...restoredAnswers, ...answersRef.current }
+        answersRef.current = { ...restoredAnswers, ...local, ...answersRef.current }
         setAnswers(answersRef.current)
         setAttachments(restoredAttachments)
         setSaveStates((current) => ({ ...restoredStates, ...current }))
+        setSubmittedParts(restoredSubmitted)
+        setConflicts(restoredConflicts)
+        setResponsesReady(true)
+        // Recover older device-only drafts; existing server answers require an
+        // explicit choice above when they differ from the local recovery copy.
+        if (!usesLocalDrafts) {
+          const validParts = new Set(questionBank.questions.flatMap((item) => item.parts.map((part) => part.id)))
+          for (const [id, value] of Object.entries(local)) {
+            if (validParts.has(id) && !restoredConflicts[id]) {
+              persistAnswer(id, value).catch(() => {})
+            }
+          }
+        }
         setReviews(restoredReviews)
         setChatTurns(restoredChatTurns)
       })
       .catch((error) => {
-        if (!cancelled) setResponseLoadError(error.message)
+        if (!cancelled) {
+          restoreFailedRef.current = true
+          setResponseLoadError(error.message)
+        }
       })
     return () => {
       cancelled = true
       saveTimersRef.current.forEach((timer) => clearTimeout(timer))
       saveTimersRef.current.clear()
     }
-  }, [topicNumber, questionBank, usesLocalDrafts])
+  }, [topicNumber, questionBank, usesLocalDrafts, aiEnabled])
 
   const hasPendingTutorWork = reviews.some((item) => ['pending', 'processing'].includes(item.status))
     || chatTurns.some((item) => ['pending', 'processing'].includes(item.status))
@@ -734,6 +858,9 @@ export default function QuestionPracticePage() {
   const resetTutorWidth = () => applyTutorWidth(DEFAULT_TUTOR_WIDTH, true)
 
   const persistAnswer = async (partId, value, status = 'draft') => {
+    if (!usesLocalDrafts && (restoreFailedRef.current || conflictsRef.current.has(partId))) {
+      throw new Error('Choose which saved answer to keep before saving this draft.')
+    }
     const version = (saveVersionsRef.current.get(partId) || 0) + 1
     saveVersionsRef.current.set(partId, version)
     setSaveStates((current) => ({ ...current, [partId]: 'saving' }))
@@ -743,19 +870,31 @@ export default function QuestionPracticePage() {
       const previous = saveQueuesRef.current.get(partId) || Promise.resolve()
       const operation = previous.catch(() => {}).then(() => usesLocalDrafts
         ? saveDraft(topic.number, partId, value)
-        : saveStudentResponse(partId, value, status))
+        : saveStudentResponse(partId, value, revisionsRef.current.get(partId) || 0))
       saveQueuesRef.current.set(partId, operation)
       const response = await operation
+      revisionsRef.current.set(partId, response.revision)
+      if (!usesLocalDrafts && (answersRef.current[partId] || '') === value) {
+        try { removeDraft(topic.number, partId, value) } catch { /* Keep the recovery copy if browser storage is unavailable. */ }
+        setSubmittedParts((current) => ({ ...current, [partId]: Boolean(response.submitted) }))
+      }
       setAttachments((current) => ({ ...current, [partId]: response.attachments }))
       if (saveVersionsRef.current.get(partId) === version) {
         setSaveStates((current) => ({ ...current, [partId]: 'saved' }))
         setSaveMessages((current) => ({
           ...current,
-          [partId]: usesLocalDrafts ? 'Saved on this device' : status === 'ready_for_review' ? 'Saved and ready for tutor review' : 'Saved securely',
+          [partId]: usesLocalDrafts ? 'Saved on this device' : response.submitted ? 'Answer submitted' : 'Saved to your guest workspace',
         }))
       }
       return response
     } catch (error) {
+      if (error.status === 409) {
+        conflictsRef.current.add(partId)
+        getStudentResponses(topic.number).then((responses) => {
+          const remote = responses.find((response) => response.question_part_id === partId)
+          if (remote) setConflicts((current) => ({ ...current, [partId]: remote }))
+        }).catch(() => {})
+      }
       if (saveVersionsRef.current.get(partId) === version) {
         setSaveStates((current) => ({ ...current, [partId]: 'error' }))
         setSaveMessages((current) => ({ ...current, [partId]: error.message }))
@@ -767,6 +906,18 @@ export default function QuestionPracticePage() {
   const changeAnswer = (partId, value) => {
     answersRef.current = { ...answersRef.current, [partId]: value }
     setAnswers(answersRef.current)
+    setSubmittedParts((current) => ({ ...current, [partId]: false }))
+    saveVersionsRef.current.set(partId, (saveVersionsRef.current.get(partId) || 0) + 1)
+    try {
+      saveDraft(topic.number, partId, value)
+      if (usesLocalDrafts) {
+        setSaveStates((current) => ({ ...current, [partId]: 'saved' }))
+        setSaveMessages((current) => ({ ...current, [partId]: 'Saved on this device' }))
+        return
+      }
+    } catch {
+      setResponseLoadError('Browser recovery storage is unavailable. Keep this page open until your work is saved to the server.')
+    }
     setSaveStates((current) => ({ ...current, [partId]: 'saving' }))
     setSaveMessages((current) => ({ ...current, [partId]: '' }))
     clearTimeout(saveTimersRef.current.get(partId))
@@ -783,44 +934,103 @@ export default function QuestionPracticePage() {
     persistAnswer(part.id, answersRef.current[part.id] || '').catch(() => {})
   }
 
-  const uploadImages = async (part, files) => {
-    const currentAttachments = attachments[part.id] || []
-    if (currentAttachments.length + files.length > 4) {
-      setSaveStates((current) => ({ ...current, [part.id]: 'error' }))
-      setSaveMessages((current) => ({ ...current, [part.id]: 'You can attach up to 4 images to one answer.' }))
-      return
+  const resolveConflict = (partId, keepLocal) => {
+    const remote = conflicts[partId]
+    revisionsRef.current.set(partId, remote.revision)
+    conflictsRef.current.delete(partId)
+    setConflicts((current) => { const next = { ...current }; delete next[partId]; return next })
+    if (keepLocal) {
+      persistAnswer(partId, answersRef.current[partId] || '').catch(() => {})
+    } else {
+      clearTimeout(saveTimersRef.current.get(partId))
+      saveTimersRef.current.delete(partId)
+      answersRef.current = { ...answersRef.current, [partId]: remote.typed_work }
+      setAnswers(answersRef.current)
+      setAttachments((current) => ({ ...current, [partId]: remote.attachments || [] }))
+      setSubmittedParts((current) => ({ ...current, [partId]: Boolean(remote.submitted) }))
+      setSaveStates((current) => ({ ...current, [partId]: 'saved' }))
+      setSaveMessages((current) => ({ ...current, [partId]: 'Restored saved answer' }))
+      try { removeDraft(topic.number, partId, answers[partId]) } catch { /* Recovery copy may remain. */ }
     }
+  }
+
+  const submitAnswer = async (part) => {
+    if (busyPartsRef.current.has(part.id) || conflictsRef.current.has(part.id) || photoUploads.pendingCount(part.id)) return
+    busyPartsRef.current.add(part.id)
     clearTimeout(saveTimersRef.current.get(part.id))
     saveTimersRef.current.delete(part.id)
+    const value = answersRef.current[part.id] || ''
     try {
-      await persistAnswer(part.id, answersRef.current[part.id] || '')
-      setSaveStates((current) => ({ ...current, [part.id]: 'uploading' }))
-      setSaveMessages((current) => ({ ...current, [part.id]: 'Uploading solution image…' }))
-      let response
-      for (const file of files) response = await uploadSolutionImage(part.id, file)
-      setAttachments((current) => ({ ...current, [part.id]: response.attachments }))
-      setSaveStates((current) => ({ ...current, [part.id]: 'saved' }))
-      setSaveMessages((current) => ({ ...current, [part.id]: `${response.attachments.length} solution image${response.attachments.length === 1 ? '' : 's'} saved` }))
+      const saved = await persistAnswer(part.id, value)
+      setSaveStates((current) => ({ ...current, [part.id]: 'submitting' }))
+      await submitStudentResponse(part.id, saved.revision)
+      if ((answersRef.current[part.id] || '') === value) {
+        setSubmittedParts((current) => ({ ...current, [part.id]: true }))
+        setSaveStates((current) => ({ ...current, [part.id]: 'saved' }))
+        setSaveMessages((current) => ({ ...current, [part.id]: 'Answer submitted. You can edit it and submit a new attempt.' }))
+      }
     } catch (error) {
       setSaveStates((current) => ({ ...current, [part.id]: 'error' }))
       setSaveMessages((current) => ({ ...current, [part.id]: error.message }))
+    } finally { busyPartsRef.current.delete(part.id) }
+  }
+
+  const applyPageMutation = (partId, operation, signal) => {
+    const previous = saveQueuesRef.current.get(partId) || Promise.resolve()
+    const pending = previous.catch(() => {}).then(async () => {
+      signal?.throwIfAborted()
+      const response = await operation(revisionsRef.current.get(partId))
+      signal?.throwIfAborted()
+      if (typeof response.typed_work === 'string' && response.typed_work !== (answersRef.current[partId] || '')) {
+        const error = new Error('This answer changed in another tab. Choose which saved answer to keep before continuing.')
+        error.status = 409
+        throw error
+      }
+      revisionsRef.current.set(partId, response.revision)
+      setAttachments((current) => ({ ...current, [partId]: response.attachments }))
+      setSubmittedParts((current) => ({ ...current, [partId]: Boolean(response.submitted) }))
+      return response
+    })
+    saveQueuesRef.current.set(partId, pending)
+    return pending
+  }
+
+  const pageMutationError = (partId, error) => {
+    setSaveStates((current) => ({ ...current, [partId]: 'error' }))
+    setSaveMessages((current) => ({ ...current, [partId]: error.message }))
+    if (error.status === 409) {
+      conflictsRef.current.add(partId)
+      getStudentResponse(partId).then((remote) => {
+        setConflicts((current) => ({ ...current, [partId]: remote }))
+      }).catch(() => {})
+    }
+  }
+
+  const discardUpload = (partId, id) => {
+    const item = photoUploads.queues[partId]?.find((candidate) => candidate.id === id)
+    if (photoUploads.remove(partId, id) && item?.error === saveMessages[partId]) {
+      setSaveStates((current) => ({ ...current, [partId]: 'idle' }))
+      setSaveMessages((current) => ({ ...current, [partId]: '' }))
     }
   }
 
   const deleteImage = async (part, attachmentId) => {
-    setSaveStates((current) => ({ ...current, [part.id]: 'saving' }))
-    setSaveMessages((current) => ({ ...current, [part.id]: 'Removing image…' }))
+    if (busyPartsRef.current.has(part.id) || conflictsRef.current.has(part.id)) return
+    busyPartsRef.current.add(part.id)
+    setPageMutations((current) => ({ ...current, [part.id]: true }))
+    clearTimeout(saveTimersRef.current.get(part.id))
+    saveTimersRef.current.delete(part.id)
     try {
-      await removeSolutionImage(attachmentId)
-      setAttachments((current) => ({
-        ...current,
-        [part.id]: (current[part.id] || []).filter((item) => item.id !== attachmentId),
-      }))
+      await persistAnswer(part.id, answersRef.current[part.id] || '')
+      setSaveStates((current) => ({ ...current, [part.id]: 'saving' }))
+      setSaveMessages((current) => ({ ...current, [part.id]: 'Removing page...' }))
+      await applyPageMutation(part.id, (revision) => removeSolutionImage(part.id, attachmentId, revision))
       setSaveStates((current) => ({ ...current, [part.id]: 'saved' }))
-      setSaveMessages((current) => ({ ...current, [part.id]: 'Image removed' }))
-    } catch (error) {
-      setSaveStates((current) => ({ ...current, [part.id]: 'error' }))
-      setSaveMessages((current) => ({ ...current, [part.id]: error.message }))
+      setSaveMessages((current) => ({ ...current, [part.id]: 'Page removed from this draft. Submitted answers keep their pages.' }))
+    } catch (error) { pageMutationError(part.id, error) }
+    finally {
+      busyPartsRef.current.delete(part.id)
+      setPageMutations((current) => ({ ...current, [part.id]: false }))
     }
   }
 
@@ -948,7 +1158,16 @@ export default function QuestionPracticePage() {
           return <button type="button" key={item.id} className={number === selectedIndex + 1 ? 'active' : ''} aria-label={`Question ${number}: ${item.title}`} aria-current={number === selectedIndex + 1 ? 'step' : undefined} onClick={() => moveTo(number - 1)}>{number}</button>
         })}<button type="button" className="number-nav-arrow" aria-label="Next question" onClick={() => moveTo(selectedIndex + 1)} disabled={selectedIndex === visibleQuestions.length - 1}><ChevronRight size={17} /></button></> : isLoading ? <span className="question-picker-loading" aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</span> : <span className="question-picker-empty"><CircleDashed size={16} /> {hasQuestions ? 'No questions match these filters.' : 'No questions available yet'}</span>}</div>
       </nav>
-      {responseLoadError && <div className="response-load-warning" role="alert">Saved work could not be restored: {responseLoadError}</div>}
+      {!usesLocalDrafts && hasQuestions && <p className="guest-workspace-notice">Your work is saved to a guest workspace in this browser. Clearing browser data removes access. Accounts are coming later.</p>}
+      {responseLoadError && <div className="response-load-warning" role="alert">{responseLoadError} <button type="button" onClick={() => window.location.reload()}>Reload saved work</button></div>}
+      {!responsesReady && hasQuestions && !responseLoadError && <p role="status">Restoring your saved work…</p>}
+      {Object.entries(conflicts).map(([partId, remote]) => <section className="response-load-warning draft-conflict" key={partId} aria-label="Choose saved answer">
+        <p>This question part has different local and saved work. Choose which answer to keep.</p>
+        <p>Question part: {partId}</p>
+        <details><summary>Compare answers</summary><strong>Local draft</strong><pre>{answers[partId]}</pre><strong>Saved answer</strong><pre>{remote.typed_work}</pre></details>
+        <button type="button" onClick={() => resolveConflict(partId, true)}>Save my local draft instead</button>
+        <button type="button" onClick={() => resolveConflict(partId, false)}>Use saved answer</button>
+      </section>)}
       <div
         ref={workspaceRef}
         className={`practice-workspace ${isResizingTutor ? 'is-resizing' : ''}`}
@@ -959,7 +1178,34 @@ export default function QuestionPracticePage() {
             <article className="exam-question" key={question.id}>
               <header className="exam-question-header"><div className="question-number">{selectedIndex + 1}</div><div><p>{question.paper ? (question.paper.calculatorAllowed ? 'CALCULATOR' : 'NON-CALCULATOR') : 'PRACTICE QUESTION'}</p><h2>{question.title}</h2>{question.subtopicCodes && <div className="question-subtopic-tags">{question.subtopicCodes.map((code) => <span key={code}>{topic.subtopics.find((item) => item.code === code)?.title || code}</span>)}</div>}</div><strong>{question.total_marks} marks</strong></header>
               <div className="question-stimulus">{question.prompt.map((block, index) => <QuestionBlock block={block} key={index} />)}</div>
-              <div className="question-parts">{question.parts.map((part) => <QuestionPart part={part} answer={answers[part.id] || ''} attachments={attachments[part.id] || []} saveState={saveStates[part.id] || 'idle'} saveMessage={saveMessages[part.id] || ''} tutorError={reviewErrors[part.id]} tutorBusy={reviewStates[part.id] === 'reviewing' || chatStates[part.id] === 'sending' || reviews.some((item) => item.question_part_id === part.id && ['pending', 'processing'].includes(item.status)) || chatTurns.some((item) => item.question_part_id === part.id && ['pending', 'processing'].includes(item.status))} isActive={part.id === activePart.id} onAnswerChange={(value) => changeAnswer(part.id, value)} onSave={() => saveNow(part)} onUpload={(files) => uploadImages(part, files)} onRemoveAttachment={(attachmentId) => deleteImage(part, attachmentId)} onActivate={() => setActivePartId(part.id)} onTutorRequest={askTutor} localDraftOnly={Boolean(question.localDraftOnly)} key={part.id} />)}</div>
+              <div className="question-parts">{question.parts.map((part) => <QuestionPart
+                key={part.id}
+                part={part}
+                answer={answers[part.id] || ''}
+                attachments={attachments[part.id] || []}
+                saveState={saveStates[part.id] || 'idle'}
+                saveMessage={saveMessages[part.id] || ''}
+                tutorError={reviewErrors[part.id]}
+                tutorBusy={reviewStates[part.id] === 'reviewing' || chatStates[part.id] === 'sending' || reviews.some((item) => item.question_part_id === part.id && ['pending', 'processing'].includes(item.status)) || chatTurns.some((item) => item.question_part_id === part.id && ['pending', 'processing'].includes(item.status))}
+                isActive={part.id === activePart.id}
+                onAnswerChange={(value) => changeAnswer(part.id, value)}
+                onSave={() => saveNow(part)}
+                onSubmit={question.capabilities?.submitResponses ? () => submitAnswer(part) : undefined}
+                submitted={Boolean(submittedParts[part.id])}
+                ready={responsesReady && !pageMutations[part.id] && saveStates[part.id] !== 'submitting'}
+                aiEnabled={aiEnabled}
+                uploadsEnabled={question.capabilities?.uploads === true}
+                onUpload={(files) => photoUploads.enqueue(part.id, files)}
+                uploadQueue={photoUploads.queues[part.id] || []}
+                uploadBusy={Boolean(pageMutations[part.id])}
+                uploadBlocked={conflictsRef.current.has(part.id)}
+                onRetryUpload={(id) => photoUploads.retry(part.id, id)}
+                onDiscardUpload={(id) => discardUpload(part.id, id)}
+                onRemoveAttachment={(attachmentId) => deleteImage(part, attachmentId)}
+                onActivate={() => setActivePartId(part.id)}
+                onTutorRequest={askTutor}
+                localDraftOnly={Boolean(question.localDraftOnly)}
+              />)}</div>
             </article>
             <nav className="practice-pagination" aria-label="Question navigation"><button type="button" onClick={() => moveTo(selectedIndex - 1)} disabled={selectedIndex === 0}><ChevronLeft size={18} /> Previous question</button><span>{selectedIndex + 1} of {visibleQuestions.length}</span><button type="button" onClick={() => moveTo(selectedIndex + 1)} disabled={selectedIndex === visibleQuestions.length - 1}>Next question <ChevronRight size={18} /></button></nav>
           </> : <EmptyQuestionCard topic={topic} loading={isLoading} error={loadError} />}
@@ -983,7 +1229,7 @@ export default function QuestionPracticePage() {
           onKeyDown={resizeTutorWithKeyboard}
           onDoubleClick={resetTutorWidth}
         ><span aria-hidden="true" /></div>
-        <AiTutorPanel topic={topic} question={question} displayNumber={selectedIndex + 1} activePart={activePart} reviews={reviews} reviewState={reviewStates[activePart.id] || 'idle'} chatTurns={chatTurns} chatState={chatStates[activePart.id] || 'idle'} onRequest={askTutor} onSendMessage={sendTutorMessage} onRetryMessage={(part, turn) => sendTutorMessage(part, turn.learner_message, turn.client_message_id)} />
+        <AiTutorPanel topic={topic} question={aiEnabled ? question : { ...question, localDraftOnly: true }} displayNumber={selectedIndex + 1} activePart={activePart} reviews={reviews} reviewState={reviewStates[activePart.id] || 'idle'} chatTurns={chatTurns} chatState={chatStates[activePart.id] || 'idle'} onRequest={askTutor} onSendMessage={sendTutorMessage} onRetryMessage={(part, turn) => sendTutorMessage(part, turn.learner_message, turn.client_message_id)} />
       </div>
     </div>
   </ReaderShell>
