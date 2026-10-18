@@ -63,7 +63,8 @@ The script prints `Database healthy` when it can connect and query PostgreSQL. I
 - Guest credentials stay in the same browser and expire after 90 days. Clearing browser storage removes access; account sign-in and recovery come later. Conflicting local/server drafts require a choice before replacement.
 - Graph labels placed on a point or plotted line are moved to nearby clear space and drawn with a background outline. Labels already positioned away from a line keep their source coordinates.
 - For a crowded graph that needs editorial placement, a graph label can specify an `offset` such as `[12, -16]` in SVG pixels. The renderer checks that offsets contain two finite numbers, and the question tests check that the result stays inside the SVG.
-- Students can attach up to four JPEG, PNG or WebP solution pages per answer (10 MB per original). The backend compresses each page separately into a private Supabase Storage object. Image-only answers can be submitted, and submitted pages remain viewable after removing them from a later draft. No merging or AI processing runs. Upload controls enable when server Storage settings are present; the AI tutor remains disabled.
+- Students can attach up to four JPEG, PNG or WebP solution pages per answer (10 MB per original). The backend compresses each page separately into a private Supabase Storage object. Image-only answers can be submitted, and submitted pages remain viewable after removing them from a later draft. Upload controls enable when server Storage settings are present.
+- "Check with AI" submits the saved answer and marks typed work and photos together against the mark scheme. Code validates and totals the marks, and the result shows what was read. The tutor panel then streams guidance for each mistake (hint, explanation, next step), escalating help only when needed and never revealing the answer early. A fixed answer is proven by resubmitting. Learning evidence is stored per official learning outcome. AI is off unless `MATH_MATE_AI_PROVIDER` is set; use `fake` for free local development. Graph and diagram answers are not AI-marked yet.
 - Photo uploads show individual progress and wait for save confirmation. Failed and waiting photos can be retried without reselecting them while the practice page stays open; saved pages are preserved. Retry checks and server deduplication prevent duplicate pages after a lost confirmation. Resolve or remove unfinished photos before submitting.
 
 ## Checks
@@ -73,7 +74,7 @@ From `frontend/`, run `npm run build`, `npm run test:questions`, `npm run test:v
 Run `npm run test:questions` after adding JSON papers. It checks that imported blocks render and graph labels stay inside the SVG viewport; the labelled distance–time graph is a regression case for text overlapping a line.
 Keep `caption` and diagram label text student-facing. The question tests also reject internal source-paper wording and corrupted characters in rendered blocks. Use `display_view_box` on a `pattern_sequence` when its symbols need a tighter, shared view across panels.
 
-The frontend needs the FastAPI server and Supabase connection to browse questions and save guest work. Its `src/api/` modules also retain clients for future tutor and voice services; those capabilities remain disabled.
+The frontend needs the FastAPI server and Supabase connection to browse questions and save guest work. The AI marking and tutor clients in `src/api/submissions.js` use the guest bearer token; the voice client is kept for a later voice service and remains disabled.
 
 ## Database design
 

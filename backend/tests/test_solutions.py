@@ -1,57 +1,12 @@
-"""Database integration checks. All test learner records are rolled back."""
+"""Database integration checks. All test learner records are rolled back.
 
-import os
-from contextlib import contextmanager
+The rollback-only `client` fixture lives in conftest.py and skips unless MATH_MATE_TEST_DB=1.
+"""
 
 import pytest
-from fastapi.testclient import TestClient
 
-from backend.app import main as api
-from backend.app.api import dependencies
-from backend.app.services import responses as submissions, uploads, storage_cleanup as cleanup_storage
-from backend.app.services import questions, sessions
-from backend.app.db.connection import connect
-from backend.app.core.config import PROJECT_ROOT
-
-pytestmark = pytest.mark.skipif(os.getenv('MATH_MATE_TEST_DB') != '1', reason='Set MATH_MATE_TEST_DB=1 for rollback-only database tests')
-
-
-@pytest.fixture
-def client(monkeypatch):
-    with connect() as connection, connection.transaction(force_rollback=True):
-        if connection.execute("select to_regclass('math_mate.student_responses')").fetchone()[0] is None:
-            migration = PROJECT_ROOT / 'supabase/migrations/20261016000000_learner_solutions.sql'
-            connection.execute(migration.read_text(encoding='utf-8'))
-        if connection.execute("select to_regclass('math_mate.solution_files')").fetchone()[0] is None:
-            migration = PROJECT_ROOT / 'supabase/migrations/20261016010000_solution_images.sql'
-            connection.execute(migration.read_text(encoding='utf-8'))
-        @contextmanager
-        def request_connection():
-            # A failed request rolls back its own savepoint, as in production.
-            with connection.transaction():
-                yield connection
-        for module in (dependencies, questions, sessions):
-            monkeypatch.setattr(module, 'connect', request_connection)
-        monkeypatch.setattr(submissions, 'connect', request_connection)
-        monkeypatch.setattr(uploads, 'connect', request_connection)
-        monkeypatch.setattr(cleanup_storage, 'connect', request_connection)
-        yield TestClient(api.app), connection
-
-
-def guest(client):
-    response = client.post('/api/v1/learner-sessions')
-    assert response.status_code == 201
-    assert response.headers['cache-control'] == 'no-store'
-    return {'Authorization': f"Bearer {response.json()['access_token']}"}
-
-
-def part(connection):
-    return connection.execute('select id from math_mate.question_parts where active order by id limit 1').fetchone()[0]
-
-
-def save(client, headers, part_id, text, revision=0):
-    return client.put(f'/api/v1/me/responses/{part_id}', headers=headers,
-                      json={'typed_work': text, 'expected_revision': revision})
+from backend.app.services import uploads, storage_cleanup as cleanup_storage
+from helpers import guest, part, save
 
 
 def test_guest_isolation_and_tokens_not_stored(client):
@@ -122,12 +77,13 @@ def test_validation_expiration_and_unknown_parts(client):
 
 
 def test_question_projection_and_foreign_keys(client):
-    from psycopg.errors import ForeignKeyViolation
+    from psycopg.errors import ForeignKeyViolation, RestrictViolation
     http, connection = client
     part_id = part(connection)
     headers = guest(http)
     save(http, headers, part_id, 'Retain this work')
-    with pytest.raises(ForeignKeyViolation), connection.transaction():
+    # PostgreSQL 18 reports ON DELETE RESTRICT as restrict_violation; earlier versions as foreign_key_violation.
+    with pytest.raises((ForeignKeyViolation, RestrictViolation)), connection.transaction():
         connection.execute('delete from math_mate.question_parts where id = %s', (part_id,))
     # Removing a leaf from reviewed JSON retires its key rather than orphaning work.
     question_id = connection.execute('select question_id from math_mate.question_parts where id = %s', (part_id,)).fetchone()[0]
@@ -152,12 +108,14 @@ def test_draft_pagination(client):
     assert second['next_cursor'] is None
 
 
-def test_no_ai_and_configuration_controls_upload_capabilities(client):
+def test_configuration_controls_upload_and_ai_capabilities(client, monkeypatch):
     from backend.app.core.config import storage_configured
     http, _ = client
     question = http.get('/api/v1/topics/2/questions').json()['questions'][0]
     assert question['localDraftOnly'] is False
-    assert question['capabilities'] == {'saveResponses': True, 'submitResponses': True, 'uploads': storage_configured(), 'aiTutor': False}
+    assert question['capabilities'] == {'saveResponses': True, 'submitResponses': True, 'uploads': storage_configured(), 'aiTutor': True}
+    monkeypatch.setenv('MATH_MATE_AI_PROVIDER', 'off')
+    assert http.get('/api/v1/topics/2/questions').json()['questions'][0]['capabilities']['aiTutor'] is False
     assert question['uploadLimits']['maxPages'] == 4
 
 

@@ -10,6 +10,17 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 let sessionPromise = null
 let guestPromise = null
 
+async function responseError(response) {
+  let message = `Request failed (${response.status})`
+  try {
+    const body = await response.json()
+    if (typeof body.detail === 'string') message = body.detail
+  } catch { /* Keep the status-based message for non-JSON errors. */ }
+  const error = new Error(message)
+  error.status = response.status
+  return error
+}
+
 async function apiRequest(path, options = {}) {
   const { timeoutMs = REQUEST_TIMEOUT_MS, signal: externalSignal, ...fetchOptions } = options
   externalSignal?.throwIfAborted()
@@ -26,16 +37,7 @@ async function apiRequest(path, options = {}) {
       },
       signal: controller.signal,
     })
-    if (!response.ok) {
-      let message = `Request failed (${response.status})`
-      try {
-        const body = await response.json()
-        if (typeof body.detail === 'string') message = body.detail
-      } catch { /* Keep the status-based message for non-JSON errors. */ }
-      const error = new Error(message)
-      error.status = response.status
-      throw error
-    }
+    if (!response.ok) throw await responseError(response)
     if (response.status === 204) return null
     return await response.json()
   } catch (error) {
@@ -63,11 +65,6 @@ function rememberSession(id) {
   catch { /* The session remains usable until this tab is closed. */ }
 }
 
-function forgetSession() {
-  try { localStorage.removeItem(SESSION_STORAGE_KEY) }
-  catch { /* Nothing else to clean up. */ }
-}
-
 async function createSession() {
   const session = await apiRequest('/learner-sessions', { method: 'POST' })
   rememberSession(session.id)
@@ -79,20 +76,6 @@ export async function getSessionId() {
   if (existing) return existing
   if (!sessionPromise) sessionPromise = createSession().finally(() => { sessionPromise = null })
   return sessionPromise
-}
-
-async function withSession(operation, canRetry = true) {
-  const sessionId = await getSessionId()
-  try {
-    return await operation(sessionId)
-  } catch (error) {
-    if (canRetry && error.status === 404 && error.message === 'Learner session not found') {
-      forgetSession()
-      sessionPromise = null
-      return withSession(operation, false)
-    }
-    throw error
-  }
 }
 
 export function getStudentResponses(topicNumber) {
@@ -195,44 +178,89 @@ export function attachmentContentUrl(contentUrl) {
   return `${API_BASE_URL}${contentUrl}`
 }
 
-export function getTutorReviews(topicNumber) {
-  return withSession(async (sessionId) => {
-    const data = await apiRequest(
-      `/learner-sessions/${sessionId}/reviews?topic_number=${encodeURIComponent(topicNumber)}`,
-    )
-    return data.reviews
+export async function getTutorReviews(topicNumber) {
+  const data = await guestRequest(`/me/assessments?topic_number=${encodeURIComponent(topicNumber)}`)
+  return data.assessments
+}
+
+// Submits the saved revision and queues AI marking; poll getTutorReviews for the result.
+export function requestTutorReview(questionPartId, expectedRevision) {
+  return guestRequest(`/me/responses/${encodeURIComponent(questionPartId)}/assessments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expected_revision: expectedRevision }),
+    timeoutMs: 30000,
   })
 }
 
-export function requestTutorReview(questionPartId, expectedRevision, intent = 'check') {
-  return withSession((sessionId) => apiRequest(
-    `/learner-sessions/${sessionId}/responses/${encodeURIComponent(questionPartId)}/reviews`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ expected_revision: expectedRevision, intent }),
-      timeoutMs: 95000,
-    },
-  ))
+export async function getTutorChatTurns(topicNumber) {
+  const data = await guestRequest(`/me/tutor-turns?topic_number=${encodeURIComponent(topicNumber)}`)
+  return data.turns
 }
 
-export function getTutorChatTurns(topicNumber) {
-  return withSession(async (sessionId) => {
-    const data = await apiRequest(
-      `/learner-sessions/${sessionId}/chat-turns?topic_number=${encodeURIComponent(topicNumber)}`,
-    )
-    return data.turns
-  })
+function parseServerEvent(block) {
+  let type = 'message'
+  const data = []
+  for (const line of block.split('\n')) {
+    if (line.startsWith('event:')) type = line.slice(6).trim()
+    else if (line.startsWith('data:')) data.push(line.slice(5).trimStart())
+  }
+  if (!data.length) return null
+  try { return { type, data: JSON.parse(data.join('\n')) } }
+  catch { return null }
 }
 
-export function sendTutorChatMessage(questionPartId, message, clientMessageId) {
-  return withSession((sessionId) => apiRequest(
-    `/learner-sessions/${sessionId}/question-parts/${encodeURIComponent(questionPartId)}/chat-turns`,
-    {
+// Streams the tutor reply. onEvent receives start, delta, reset, done and error events as they arrive.
+// The server saves the turn even if this connection drops, so callers can recover by polling.
+export async function sendTutorChatMessage(questionPartId, message, clientMessageId, { intent = 'message', onEvent, signal } = {}) {
+  signal?.throwIfAborted()
+  const token = await guestToken()
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  signal?.addEventListener('abort', abort, { once: true })
+  const timeout = setTimeout(abort, 60000)
+  try {
+    const response = await fetch(`${API_BASE_URL}${API_PREFIX}/me/question-parts/${encodeURIComponent(questionPartId)}/tutor-turns`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_message_id: clientMessageId, message }),
-      timeoutMs: 60000,
-    },
-  ))
+      headers: {
+        Accept: 'text/event-stream, application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ client_message_id: clientMessageId, message, intent }),
+      signal: controller.signal,
+    })
+    if (!response.ok) throw await responseError(response)
+    // A retry of an already answered message returns the saved turn as JSON.
+    if (!response.headers.get('content-type')?.includes('text/event-stream')) return await response.json()
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let boundary
+      while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+        const event = parseServerEvent(buffer.slice(0, boundary))
+        buffer = buffer.slice(boundary + 2)
+        if (!event) continue
+        onEvent?.(event)
+        if (event.type === 'done') return event.data
+        if (event.type === 'error') {
+          const error = new Error(event.data.error_message || 'The tutor could not answer just now.')
+          error.turn = event.data
+          throw error
+        }
+      }
+    }
+    throw new Error('The connection closed early. Checking for your saved reply; please wait before retrying.')
+  } catch (error) {
+    if (signal?.aborted) throw new DOMException('Request stopped', 'AbortError')
+    if (error.name === 'AbortError') throw new Error('The connection took too long. Checking for your saved result; please wait before retrying.')
+    throw error
+  } finally {
+    clearTimeout(timeout)
+    signal?.removeEventListener('abort', abort)
+  }
 }

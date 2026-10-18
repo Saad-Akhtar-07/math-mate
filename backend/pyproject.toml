@@ -1,3 +1,4 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [".."]
+markers = ["live: paid AI request; opt-in only, after owner approval of the batch"]

@@ -1,0 +1,86 @@
+"""Shared guards and the rollback-only database fixture.
+
+Every test uses the free fake AI provider and cannot open a real network
+connection, even when DEEPSEEK_API_KEY is configured. Live provider tests live
+in tests/live and need MATH_MATE_LIVE_AI_TEST=1 plus an approved batch.
+"""
+
+import os
+from contextlib import contextmanager
+
+import httpx
+import pytest
+
+from backend.app.ai import gateway
+from backend.app.ai.providers import reset_fake_provider
+from backend.app.core.config import PROJECT_ROOT
+
+# Sentinel table and migration, applied inside the rolled-back test transaction when missing.
+MIGRATIONS = (
+    ('student_responses', '20261016000000_learner_solutions.sql'),
+    ('solution_files', '20261016010000_solution_images.sql'),
+    ('assessments', '20261020000000_ai_tutoring.sql'),
+)
+
+
+class MemoryLedger:
+    def __init__(self):
+        self.calls = []
+
+    def reserve(self, request, provider, model, estimate):
+        self.calls.append({'purpose': request.purpose, 'provider': provider, 'estimate': estimate, 'status': 'pending'})
+        return len(self.calls) - 1
+
+    def settle(self, call_id, status, usage, cost_usd, latency_ms):
+        self.calls[call_id].update(status=status, usage=usage, cost=cost_usd)
+
+
+@pytest.fixture(autouse=True)
+def no_paid_ai(request, monkeypatch):
+    if request.node.get_closest_marker('live'):
+        yield
+        return
+    monkeypatch.setenv('MATH_MATE_AI_PROVIDER', 'fake')
+    monkeypatch.delenv('MATH_MATE_LIVE_AI_TEST', raising=False)
+    reset_fake_provider()
+
+    def blocked(_transport, outgoing):
+        raise RuntimeError(f'Unexpected network request to {outgoing.url.host} during tests')
+    # Mock transports and the ASGI test client do not use HTTPTransport, so they still work.
+    monkeypatch.setattr(httpx.HTTPTransport, 'handle_request', blocked)
+    yield
+    reset_fake_provider()
+
+
+@pytest.fixture
+def ledger(monkeypatch):
+    memory = MemoryLedger()
+    monkeypatch.setattr(gateway, 'ledger', memory)
+    return memory
+
+
+@pytest.fixture
+def client(monkeypatch):
+    if os.getenv('MATH_MATE_TEST_DB') != '1':
+        pytest.skip('Set MATH_MATE_TEST_DB=1 for rollback-only database tests')
+    from fastapi.testclient import TestClient
+    from backend.app import main as api
+    from backend.app.api import dependencies
+    from backend.app.db.connection import connect
+    from backend.app.services import (assessments, questions, responses, sessions, storage_cleanup,
+                                      tutoring, uploads)
+
+    with connect() as connection, connection.transaction(force_rollback=True):
+        for table, filename in MIGRATIONS:
+            if connection.execute('select to_regclass(%s)', (f'math_mate.{table}',)).fetchone()[0] is None:
+                connection.execute((PROJECT_ROOT / 'supabase/migrations' / filename).read_text(encoding='utf-8'))
+
+        @contextmanager
+        def request_connection():
+            # A failed request rolls back its own savepoint, as in production.
+            with connection.transaction():
+                yield connection
+        for module in (dependencies, questions, sessions, responses, uploads, storage_cleanup,
+                       assessments, tutoring, gateway):
+            monkeypatch.setattr(module, 'connect', request_connection)
+        yield TestClient(api.app), connection

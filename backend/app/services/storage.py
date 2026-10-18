@@ -69,6 +69,15 @@ class Storage:
         if not response.is_success:
             raise StorageError('The image could not be stored. Check the storage quota and try again.')
 
+    def get(self, bucket, object_key):
+        # Read a private page for AI marking; bytes go to the model as base64, never a signed URL.
+        if bucket != self.bucket:
+            raise StorageError('The image bucket does not match the configured bucket.')
+        response = self.request('GET', f'/object/{bucket}/{quote(object_key, safe="/")}')
+        if not response.is_success or len(response.content) > MAX_STORED_BYTES:
+            raise StorageError('A solution page could not be read for marking. Please try again.')
+        return response.content
+
     def signed_url(self, bucket, object_key):
         # Refuse to serve a bucket that has accidentally been made public.
         if bucket != self.bucket:

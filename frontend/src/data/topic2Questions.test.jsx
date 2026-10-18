@@ -36,6 +36,28 @@ test('the complete Topic 2 bank is browsable by subtopic and paper type', () => 
   }
 })
 
+test('Topic 2 learning outcome codes follow the official 2025-2027 syllabus numbering', () => {
+  // Outcome counts per subtopic in the Cambridge 4024 syllabus for 2025-2027 (version 2).
+  // A subtopic with one outcome uses its own code, as in data/*.json ("2.8", "2.11").
+  const officialOutcomeCounts = { '2.1': 2, '2.2': 5, '2.3': 2, '2.4': 2, '2.5': 6, '2.6': 4, '2.7': 3, '2.8': 1, '2.9': 4, '2.10': 4, '2.11': 1, '2.12': 3 }
+  const subtopics = syllabus.find((topic) => topic.number === '2').subtopics
+  expect(Object.fromEntries(subtopics.map((subtopic) => [subtopic.code, subtopic.outcomes.length]))).toEqual(officialOutcomeCounts)
+  const outcomeCodes = new Set(subtopics.flatMap((subtopic) => subtopic.outcomes.length === 1
+    ? [subtopic.code]
+    : subtopic.outcomes.map((_, index) => `${subtopic.code}.${index + 1}`)))
+
+  const dataDirectory = new URL('../../../data/', import.meta.url)
+  const leafParts = (item) => item.parts?.length ? item.parts.flatMap(leafParts) : [item]
+  const parts = readdirSync(dataDirectory).filter((name) => name.endsWith('_algebra_and_graphs.json'))
+    .flatMap((name) => JSON.parse(readFileSync(new URL(name, dataDirectory), 'utf8')).questions.flatMap(leafParts))
+  expect(parts.length).toBeGreaterThan(0)
+  for (const part of parts) {
+    const codes = part.bank_alignment?.learning_outcome_codes || []
+    expect(codes.length, part.id).toBeGreaterThan(0)
+    for (const code of codes) expect(outcomeCodes.has(code), `${part.id}: ${code}`).toBe(true)
+  }
+})
+
 test('all imported question and part content blocks render', () => {
   for (const question of syllabus.flatMap((topic) => getTopicQuestions(topic.number))) {
     const blocks = [...question.prompt, ...question.parts.flatMap((part) => part.prompt)]

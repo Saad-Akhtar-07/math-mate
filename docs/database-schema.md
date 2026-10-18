@@ -51,9 +51,9 @@ order by paper_year desc, question_number;
 3. Upsert by `id`. Treat source JSON files as the reviewed content, and report duplicate IDs or conflicting `(collection_id, question_number)` values before import.
    Leaf part IDs must start with their question ID plus `-`; the solution endpoint uses this to fetch only the relevant question row.
 4. Return question content through FastAPI. The list API strips mark schemes from every question part; `/api/v1/question-parts/{part_id}/solution` serves a selected answer and marking points.
-5. Learner identities, sessions, drafts, and submissions live in separate tables, described below. Image uploads are described below. Tutor messages and AI are not implemented.
+5. Learner identities, sessions, drafts, and submissions live in separate tables, described below. Image uploads are described below. AI marking, tutoring and learner memory are described in [AI marking, tutoring and learner memory](#ai-marking-tutoring-and-learner-memory).
 
-The API returns `localDraftOnly: false` and separate capabilities for saving, submitting, uploads, and AI. Saving and submitting are enabled; image uploads are enabled when server Storage credentials are configured. AI remains disabled. Browser storage is a recovery copy for pending work, not the database.
+The API returns `localDraftOnly: false` and separate capabilities for saving, submitting, uploads, and AI. Saving and submitting are enabled; image uploads are enabled when server Storage credentials are configured. `aiTutor` is true only when `MATH_MATE_AI_PROVIDER` is `fake`, or `deepseek` with a key. Each leaf part also reports `aiMarkable` (false for graph and diagram responses). Browser storage is a recovery copy for pending work, not the database.
 
 The migration was applied to Supabase and all 181 question rows were imported and verified on 15 October 2026. Re-run the importer after reviewing source JSON changes:
 
@@ -88,6 +88,13 @@ erDiagram
     learners ||--o{ learner_sessions : authenticates
     learners ||--o{ student_responses : owns
     student_responses ||--o{ response_submissions : snapshots
+    response_submissions ||--o{ assessments : "marked by"
+    learners ||--o{ tutor_sessions : "tutored in"
+    question_parts ||--o{ tutor_sessions : about
+    tutor_sessions ||--o{ tutor_turns : contains
+    assessments |o--o{ tutor_sessions : "current mistakes"
+    learners ||--o{ learning_events : evidence
+    learners ||--o{ learner_outcome_state : mastery
 ```
 
 ## Learner tables
@@ -119,7 +126,7 @@ New learner tables enable RLS with no browser policies. The private schema and t
 6. `POST /me/responses/{part_id}/submissions` accepts `{ "expected_revision": 1 }`. The UI saves first, then submits that revision. The transaction validates nonblank work, snapshots its question and part without mark schemes, and stores the answer. Repeated requests for an existing revision return its existing submission, even after later edits. Autosaving never creates submissions. This is submission per answerable part, not a whole-paper hand-in.
 7. `GET /me/responses/{part_id}/submissions?before=<revision>&limit=20` returns only that learner's attempts, newest first, with `next_cursor`. The workspace can show older submitted text while the learner edits the current draft.
 
-Guests can resume in the same browser while the credential remains available and unexpired. Clearing browser data, using another device, or losing the credential prevents access; this phase has no login, account recovery or device sync. Credentials must travel over HTTPS in deployment. Expired/invalid credentials produce 401, without automatically replaying the request under a replacement identity. AI grading, chat, tutor services and scores remain unimplemented. The image migrations below extend this flow with separate compressed pages.
+Guests can resume in the same browser while the credential remains available and unexpired. Clearing browser data, using another device, or losing the credential prevents access; this phase has no login, account recovery or device sync. Credentials must travel over HTTPS in deployment. Expired/invalid credentials produce 401, without automatically replaying the request under a replacement identity. The image migrations below extend this flow with separate compressed pages.
 
 ## Migrations, validation and deployment
 
@@ -179,7 +186,7 @@ Adding or removing a page increments the response revision and clears its curren
 - `POST /api/v1/me/responses/{part_id}/attachments`: multipart `image` and `expected_revision` after creating/restoring the draft. The browser validates page count and size, then uploads each selected page individually with the revision returned by the previous operation. The server enforces all limits again. A duplicate active file returns the current response without creating a second page or incrementing its revision.
 - `DELETE /api/v1/me/responses/{part_id}/attachments/{attachment_id}?expected_revision=...`: remove only that learner's draft link, returning the new revision and ordered pages. Retrying removal of an already retired link is a no-op.
 - `GET /api/v1/me/solution-files/{file_id}/url`: validate ownership, verify that the bucket remains private, then return a short-lived signed URL. The browser downloads the compressed image directly from Storage, avoiding an image-byte proxy through FastAPI.
-- The existing response and submission list APIs include ordered page metadata, but not credentials, object bytes or permanent viewing URLs. The workspace supports image-only submission, page previews, removal, page labels and viewing historical pages. AI controls remain disabled.
+- The existing response and submission list APIs include ordered page metadata, but not credentials, object bytes or permanent viewing URLs. The workspace supports image-only submission, page previews, removal, page labels and viewing historical pages. AI marking reads submitted pages with `Storage.get` and sends them to the model as base64 data; signed URLs never leave the backend.
 - `GET /me/responses/{part_id}` returns one authenticated learner's draft with its revision and ordered active pages, holding a shared response-row lock for a consistent retry check. Missing drafts and other learners' drafts return 404. Draft page metadata includes the original-file `upload_sha256` checksum to identify a saved photo after a lost confirmation. Checksums and responses remain private with `Cache-Control: no-store`; they do not grant Storage access.
 
 File uploads are not atomic with PostgreSQL transactions. The server first commits a `pending` file intent with its generated key, uploads to Storage without holding a database connection or response lock, then locks/rechecks the response revision and attaches the ready file. It only reports success after the final database transaction commits. If Storage fails or the draft changes during upload, typed work and previously attached pages stay intact; the registered intent is retryable.
@@ -224,3 +231,30 @@ The first command only reports eligible file count. The second processes at most
 Image unit tests cover decoding, EXIF rotation, transparency, repeatability, size reduction and invalid files; Storage adapter tests cover private buckets, secret headers, temporary links, transport errors and request-body limits. Database tests use a fake object store and roll back records, testing four-page enforcement, isolated access, duplicates, image-only submissions, revision conflicts, failed upload retry and reference-aware cleanup. Frontend tests exercise ordered separate uploads, image-only submission, removal, history and partial failures. No OCR accuracy or future AI token cost is claimed.
 
 The image migrations and private bucket were applied on 16 October 2026. A live Storage upload and signed download returned identical compressed bytes; the temporary verification object was removed. The sample page compressed from 437,816 to 161,861 bytes at 1,650 × 2,200 pixels. This is a test-page result, not a guaranteed compression ratio for student photos. The nine rollback-only database integration tests, eight image/Storage unit tests, frontend suites and production build passed.
+
+
+## AI marking, tutoring and learner memory
+
+`20261020000000_ai_tutoring.sql` adds six tables. The design, prompts, policy rules and edge cases are in [`ai-tutoring-plan.md`](ai-tutoring-plan.md). All six tables use RLS with no browser policies and revoke browser and public access, like the other learner tables.
+
+| Table | Purpose and guarantees |
+| --- | --- |
+| `assessments` | One validated Marker result per `(submission_id, pipeline_version)`, so repeated "Check work" requests return the same job. `status` is `pending`, `processing`, `completed`, `unreadable` or `failed`. `run_count` allows one re-run of a failed job. `independent` records whether any tutor help on the part existed when the attempt was first assessed. `marks_awarded` is computed by backend rules, never by the model, and is present exactly when `status = 'completed'`. `result` keeps the validated model output with the point-to-code mapping; `error_code` never holds student content. |
+| `tutor_sessions` | The tutoring loop for one learner and part, with at most one `active` session per part (partial unique index). It holds the current assessment (optional, because help may come before any submission), `mistake_index`, the help `level` reached, `max_assistance`, the no-progress streak, `turn_count` and whether the full solution was shown. A full-mark resubmission ends it as `resolved` or `resolved_with_solution`. |
+| `tutor_turns` | One learner message and one tutor reply. `unique (learner_id, client_message_id)` makes retries idempotent. Each turn stores the Observer classification, the policy input snapshot (`decision_state`), `teaching_move`, `assistance`, `reason` and the policy and prompt versions, the dataset for evaluating future policies. A completed turn always has a message and a move. |
+| `learning_events` | Append-only evidence keyed by official learning outcome codes: `attempt` rows with score and weight (1.0 independent, 0.5 assisted, 0.25 after a full solution), plus `misconception_observed` and `misconception_resolved` rows. A unique index on the source, outcome, kind and misconception means the same assessment or session can never count twice. |
+| `learner_outcome_state` | Mastery projection per learner and outcome, rebuilt from `learning_events`. `formula_version` records the formula, so a new formula can be applied by recomputing from events. |
+| `llm_calls` | Paid-model usage ledger: purpose, provider, model, prompt version, status, token counts, latency and cost. Never prompts, student work, keys or URLs. Each call is reserved at its worst-case cost under an advisory lock before the request, then settled with reported usage. Unknown usage (timeouts, crashes) keeps the conservative estimate. Daily caps (`MATH_MATE_AI_DAILY_BUDGET_USD`, `MATH_MATE_AI_LEARNER_DAILY_BUDGET_USD`) are checked against this table. `learner_id` is set to null on learner deletion so spend history survives. |
+
+Deleting a learner cascades through sessions, turns, events and outcome state, and through submissions to assessments. Marking and tutoring never hold a database connection during a model call: a job or turn commits its intent, calls the model, then commits the result in a new transaction. Assessments or turns left `pending`/`processing` by a restart are marked `failed` with `error_code = 'interrupted'` by the list endpoints (after 3 minutes for assessments, 2 minutes for turns) and can be retried.
+
+API (all require the guest bearer token and return `Cache-Control: no-store`):
+
+- `POST /api/v1/me/responses/{part_id}/assessments` with `{ "expected_revision": n }` submits that revision (idempotently) and queues marking. It returns 202 with the assessment, 422 for graph or diagram parts, and 503 when AI is off.
+- `GET /api/v1/me/assessments?topic_number=2` lists results, with `attempt_number`, `outcome` (`marked`, `unreadable`, `off_topic`), marks, leak-checked `feedback`, `what_i_read` and a student-safe `error_message`.
+- `POST /api/v1/me/question-parts/{part_id}/tutor-turns` with `{ "client_message_id", "message", "intent": "message|hint|explain|show_step" }` returns the saved turn as JSON. With `Accept: text/event-stream` it streams `start`, `delta`, `reset`, `done` or `error` events. The turn finishes and is saved even if the browser disconnects.
+- `GET /api/v1/me/tutor-turns?topic_number=2` lists turns.
+
+On 18 October 2026, the migration, importer and all 100 backend tests (including the rollback-only database tests with the fake provider) passed against a throwaway local PostgreSQL 18 database. The same 100 tests then passed against Supabase (PostgreSQL 17.11) through the Session pooler, with all test records rolled back. The migration was then applied to Supabase with the migration runner: all six tables exist with RLS enabled, the 181 question rows are unchanged, and no migrations are pending. Use the Session pooler host in `.env`; the direct `db.<ref>.supabase.co` host is IPv6-only. No paid AI requests have been made.
+
+Learning outcome codes cover the whole syllabus (150 outcomes). The official wording lives in `frontend/src/data/syllabus.js`. `backend/app/tutoring/catalogue/outcomes.json` is generated from it, with skill aliases kept, by `python -m backend.scripts.sync_outcomes --apply`; a backend test fails if the two disagree.

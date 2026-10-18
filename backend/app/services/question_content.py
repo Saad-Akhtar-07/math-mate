@@ -1,7 +1,8 @@
 """Student-safe projections of curated question documents."""
 
 import copy
-from ..core.config import storage_configured
+from ..core.config import ai_enabled, storage_configured
+from ..tutoring.part_context import ai_markable_response
 
 
 def leaf_parts(part, parent_prompts=None, parent_labels=None):
@@ -14,6 +15,7 @@ def leaf_parts(part, parent_prompts=None, parent_labels=None):
         "label": "".join(labels) or "Answer",
         "prompt": prompts,
         "subtopicCode": (part.get("bank_alignment") or {}).get("subtopic_code") or (part.get("classification") or {}).get("subtopic_code"),
+        "aiMarkable": ai_markable_response((part.get("response") or {}).get("type") or "working"),
     })
     return [clean]
 
@@ -42,7 +44,7 @@ def public_question(row):
             "file": row["source_file"],
         },
         "localDraftOnly": False,
-        "capabilities": {"saveResponses": True, "submitResponses": True, "uploads": storage_configured(), "aiTutor": False},
+        "capabilities": {"saveResponses": True, "submitResponses": True, "uploads": storage_configured(), "aiTutor": ai_enabled()},
         "uploadLimits": {"maxPages": 4, "maxFileBytes": 10485760, "acceptedTypes": ["image/jpeg", "image/png", "image/webp"]},
     })
     return question

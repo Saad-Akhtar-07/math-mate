@@ -8,6 +8,7 @@ import {
   CircleDashed,
   Eye,
   EyeOff,
+  Footprints,
   Lightbulb,
   LoaderCircle,
   Save,
@@ -284,7 +285,7 @@ function QuestionPart({ part, answer, attachments, saveState, saveMessage, tutor
     <div className="question-help-row">
       <div className="tutor-actions">
         <button type="button" className="hint-button" disabled={!aiEnabled || localDraftOnly || tutorBusy} onClick={() => onTutorRequest('hint', part, answer)}><Lightbulb size={17} /> Give me a hint</button>
-        <button type="button" className="check-ai-button" disabled={!aiEnabled || localDraftOnly || tutorBusy || saveState === 'uploading'} onClick={() => onTutorRequest('check', part, answer)}><Sparkles size={17} /> Check with AI</button>
+        <button type="button" className="check-ai-button" disabled={!aiEnabled || localDraftOnly || tutorBusy || saveState === 'uploading' || part.aiMarkable === false} title={part.aiMarkable === false ? 'AI marking is not available for graph or diagram answers yet. Compare your work with the mark scheme.' : undefined} onClick={() => onTutorRequest('check', part, answer)}><Sparkles size={17} /> Check with AI</button>
       </div>
       <button type="button" className={`mark-scheme-toggle ${showScheme ? 'is-open' : ''}`} aria-expanded={showScheme} aria-controls={schemeId} onClick={toggleScheme}>{showScheme ? <EyeOff size={17} /> : <Eye size={17} />}{showScheme ? 'Hide mark scheme' : 'Mark scheme'}</button>
     </div>
@@ -307,6 +308,14 @@ const teachingMoveLabels = {
   check_understanding: 'Check your thinking',
   encourage: 'Tutor',
   redirect: 'Back to the question',
+  invite_resubmit: 'Ready to check again',
+  full_solution: 'Full solution',
+}
+
+function reviewLabel(review) {
+  if (review.status !== 'completed') return `Attempt ${review.attempt_number}`
+  if (review.outcome !== 'marked') return `Attempt ${review.attempt_number} · Not marked`
+  return `Attempt ${review.attempt_number} · ${review.marks_awarded}/${review.marks_maximum} marks`
 }
 
 function TutorWaitMessage() {
@@ -413,13 +422,16 @@ function AiTutorPanel({ topic, question, displayNumber, activePart, reviews, rev
         <p>{question.localDraftOnly ? 'You can explore every question and save written work on this device. AI hints and feedback are coming in a later phase.' : isEmpty ? 'When a reviewed question is loaded, I will follow its active part and help without taking over the solution.' : 'Ask for a formula reminder, a hint, or a short explanation. If you are still stuck, we can work through a similar example.'}</p>
       </div> : <div className="tutor-messages">
         {timeline.map((item) => item.kind === 'review' ? <div className="tutor-message assistant" key={`review-${item.value.id}`}>
-          <span>{item.value.status === 'completed' ? `Attempt ${item.value.attempt_number} · ${item.value.marks_awarded}/${item.value.marks_maximum} marks` : `Attempt ${item.value.attempt_number}`}</span>
+          <span>{reviewLabel(item.value)}</span>
           <p>{item.value.feedback || item.value.error_message || (['pending', 'processing'].includes(item.value.status) ? 'Your saved work is being reviewed.' : 'This review did not complete.')}</p>
+          {item.value.what_i_read && <details className="tutor-what-i-read"><summary>What I read</summary><p>{item.value.what_i_read}</p></details>}
           {item.value.status === 'completed' && <ReadAloud speech={speech} type="review" id={item.value.id} disabled={voiceInput.state !== 'idle'} />}
         </div> : <div className="tutor-chat-turn" key={`chat-${item.value.client_message_id}`}>
           <div className="tutor-message student"><span>You</span><p>{item.value.learner_message}</p></div>
           {item.value.status === 'completed' && <div className="tutor-message assistant"><span>{teachingMoveLabels[item.value.teaching_move] || 'Tutor'}</span><p>{item.value.tutor_message}</p><ReadAloud speech={speech} type="chat" id={item.value.id} disabled={voiceInput.state !== 'idle'} /></div>}
-          {['pending', 'processing'].includes(item.value.status) && <div className="tutor-message assistant"><span>Thinking</span><p className="tutor-thinking"><LoaderCircle className="spin" size={15} /> Preparing useful guidance…</p></div>}
+          {['pending', 'processing'].includes(item.value.status) && (item.value.tutor_message
+            ? <div className="tutor-message assistant"><span>{teachingMoveLabels[item.value.teaching_move] || 'Tutor'}</span><p>{item.value.tutor_message}</p></div>
+            : <div className="tutor-message assistant"><span>Thinking</span><p className="tutor-thinking"><LoaderCircle className="spin" size={15} /> Preparing useful guidance…</p></div>)}
           {item.value.status === 'failed' && <div className="tutor-message assistant is-error" role="alert"><span>Message saved</span><p>{item.value.error_message || 'I could not answer just now.'}</p><button type="button" className="tutor-retry-button" disabled={isBusy} onClick={() => onRetryMessage(activePart, item.value)}>Retry</button></div>}
         </div>)}
         {isReviewing && <div className="tutor-message assistant"><span>Reviewing</span><p className="tutor-thinking"><LoaderCircle className="spin" size={16} /> Reading your method and preparing the next hint…</p></div>}
@@ -432,8 +444,9 @@ function AiTutorPanel({ topic, question, displayNumber, activePart, reviews, rev
     <div className="tutor-composer">
     <div className="tutor-quick-actions" aria-label="Tutor shortcuts">
       <button type="button" disabled={isEmpty || isBusy} onClick={() => onRequest('hint', activePart)}><Lightbulb size={15} /> Hint</button>
-      <button type="button" disabled={isEmpty || isBusy} onClick={() => onSendMessage(activePart, 'Please explain the main concept behind this question briefly, without solving it for me.')}><BookOpenCheck size={15} /> Explain</button>
-      <button type="button" disabled={isEmpty || isBusy} onClick={() => onRequest('check', activePart)}><CheckCircle2 size={15} /> Check work</button>
+      <button type="button" disabled={isEmpty || isBusy} onClick={() => onSendMessage(activePart, 'Please explain the main concept behind this question briefly, without solving it for me.', undefined, 'explain')}><BookOpenCheck size={15} /> Explain</button>
+      <button type="button" disabled={isEmpty || isBusy} onClick={() => onSendMessage(activePart, 'Please show me just the next step.', undefined, 'show_step')}><Footprints size={15} /> Next step</button>
+      <button type="button" disabled={isEmpty || isBusy || activePart.aiMarkable === false} onClick={() => onRequest('check', activePart)}><CheckCircle2 size={15} /> Check work</button>
     </div>
     <VoiceInput input={voiceInput} disabled={isEmpty || isBusy} onUseDraft={(text) => {
       const combined = [chatInput.trim(), text.trim()].filter(Boolean).join('\n')
@@ -1037,7 +1050,7 @@ export default function QuestionPracticePage() {
   const askTutor = async (type, part) => {
     if (!hasQuestions || busyPartsRef.current.has(part.id)) return
     if (type === 'hint') {
-      return sendTutorMessage(part, 'Please give me one small hint for the next step, without revealing the answer.')
+      return sendTutorMessage(part, 'Please give me one small hint for the next step, without revealing the answer.', undefined, 'hint')
     }
     busyPartsRef.current.add(part.id)
     setReviewErrors((current) => ({ ...current, [part.id]: '' }))
@@ -1051,7 +1064,7 @@ export default function QuestionPracticePage() {
         answersRef.current[part.id] || '',
         'ready_for_review',
       )
-      const review = await requestTutorReview(part.id, saved.revision, type)
+      const review = await requestTutorReview(part.id, saved.revision)
       setReviews((current) => {
         const withoutDuplicate = current.filter((item) => item.id !== review.id)
         return [...withoutDuplicate, review].sort((a, b) => a.attempt_number - b.attempt_number)
@@ -1066,7 +1079,7 @@ export default function QuestionPracticePage() {
     }
   }
 
-  const sendTutorMessage = async (part, message, clientMessageId = crypto.randomUUID()) => {
+  const sendTutorMessage = async (part, message, clientMessageId = crypto.randomUUID(), intent = 'message') => {
     if (!hasQuestions || busyPartsRef.current.has(part.id)) return
     busyPartsRef.current.add(part.id)
     setActivePartId(part.id)
@@ -1087,6 +1100,7 @@ export default function QuestionPracticePage() {
         id: existing?.id || clientMessageId,
         client_message_id: clientMessageId,
         question_part_id: part.id,
+        intent,
         learner_message: message,
         tutor_message: null,
         status: 'processing',
@@ -1096,7 +1110,17 @@ export default function QuestionPracticePage() {
       return [...current.filter((turn) => turn.client_message_id !== clientMessageId), optimistic]
     })
     try {
-      const turn = await sendTutorChatMessage(part.id, message, clientMessageId)
+      // Show the reply as it streams; the saved turn replaces it when the stream finishes.
+      const turn = await sendTutorChatMessage(part.id, message, clientMessageId, {
+        intent,
+        onEvent: ({ type, data }) => setChatTurns((current) => current.map((item) => {
+          if (item.client_message_id !== clientMessageId) return item
+          if (type === 'start') return { ...item, teaching_move: data.teaching_move, tutor_message: '' }
+          if (type === 'delta') return { ...item, tutor_message: `${item.tutor_message || ''}${data.text}` }
+          if (type === 'reset') return { ...item, tutor_message: '' }
+          return item
+        })),
+      })
       setChatTurns((current) => [
         ...current.filter((item) => item.client_message_id !== clientMessageId),
         turn,
@@ -1229,7 +1253,7 @@ export default function QuestionPracticePage() {
           onKeyDown={resizeTutorWithKeyboard}
           onDoubleClick={resetTutorWidth}
         ><span aria-hidden="true" /></div>
-        <AiTutorPanel topic={topic} question={aiEnabled ? question : { ...question, localDraftOnly: true }} displayNumber={selectedIndex + 1} activePart={activePart} reviews={reviews} reviewState={reviewStates[activePart.id] || 'idle'} chatTurns={chatTurns} chatState={chatStates[activePart.id] || 'idle'} onRequest={askTutor} onSendMessage={sendTutorMessage} onRetryMessage={(part, turn) => sendTutorMessage(part, turn.learner_message, turn.client_message_id)} />
+        <AiTutorPanel topic={topic} question={aiEnabled ? question : { ...question, localDraftOnly: true }} displayNumber={selectedIndex + 1} activePart={activePart} reviews={reviews} reviewState={reviewStates[activePart.id] || 'idle'} chatTurns={chatTurns} chatState={chatStates[activePart.id] || 'idle'} onRequest={askTutor} onSendMessage={sendTutorMessage} onRetryMessage={(part, turn) => sendTutorMessage(part, turn.learner_message, turn.client_message_id, turn.intent || 'message')} />
       </div>
     </div>
   </ReaderShell>

@@ -34,8 +34,11 @@
 .tutor-chat-turn { display: grid; gap: 12px; min-width: 0; }
 .practice-workspace .tutor-message { max-width: 94%; padding: 12px 14px; overflow-wrap: anywhere; }
 .practice-workspace .tutor-message p { font-size: 14px; line-height: 1.65; white-space: pre-wrap; }
+.tutor-what-i-read { margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
+.tutor-what-i-read summary { cursor: pointer; color: var(--accent); }
+.practice-workspace .tutor-what-i-read p { margin-top: 6px; font-size: 13px; }
 .tutor-composer { flex: 0 0 auto; max-height: 55%; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--border); background: var(--surface); }
-.practice-workspace .tutor-quick-actions { border: 0; padding: 8px 12px 4px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.practice-workspace .tutor-quick-actions { border: 0; padding: 8px 12px 4px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .practice-workspace .tutor-quick-actions button { min-height: 34px; justify-content: center; padding: 5px; border-radius: 8px; font-weight: 500; }
 .practice-workspace .tutor-voice-input { padding: 6px 12px; border: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
 .voice-input-info { flex: 1; min-width: 130px; font-size: 10px; color: var(--text-tertiary); }

@@ -16,12 +16,31 @@ backend/
     middleware/              Upload request-size limits
     repositories/            Shared queries for draft and submitted image metadata
     schemas/                 Validated request models
-    services/                Questions, drafts, submissions, uploads, compression and Storage
+    services/                Questions, drafts, submissions, uploads, Storage, marking jobs,
+                             tutor turns and learner memory (transactions and ownership)
+    tutoring/                Pure marking and tutoring logic: part context, mark-scheme rules,
+                             Marker, Observer, policy, Composer, leak guard, learner model,
+                             catalogue/ (Topic 2 outcomes, skill aliases, misconceptions)
+    ai/                      The only code that calls a model: gateway (budget ledger, no
+                             retries), DeepSeek and fake providers, prices, versioned prompts
   scripts/                   Administrative command-line tools
-  tests/                     Unit tests and opt-in database integration tests
+  tests/                     Unit tests, opt-in database tests and opt-in live AI gates (tests/live)
 ```
 
 Routes delegate to services. Services own transaction boundaries so a draft update or submission snapshot commits as one operation. Shared image queries live in `repositories/`; private Storage access and compression stay in separate service modules. Administrative tools import these packages normally and run with `python -m`.
+
+Each layer imports only the layers below it: routes → services → tutoring → ai. `tutoring/` never opens a database connection, and services never hold a connection during a model call. See [the AI tutoring plan](../docs/ai-tutoring-plan.md).
+
+## AI marking and tutoring
+
+`MATH_MATE_AI_PROVIDER` defaults to `off`. Set it to `fake` for free local development: marking, streamed tutor replies and learner memory all work with deterministic responses. Set `deepseek` only when paid calls are intended, and keep the daily caps in `.env` small. Read the paid-AI budget rules in `AGENTS.md` before any live request.
+
+```powershell
+.\.venv\Scripts\python.exe -m backend.scripts.evaluate_marker          # replay recorded outputs (free)
+.\.venv\Scripts\python.exe -m backend.scripts.evaluate_marker --fake   # check the pipeline (free)
+```
+
+Live gates G1–G3 in `tests/live/` each make one bounded request. They skip unless `MATH_MATE_LIVE_AI_TEST=1` and `MATH_MATE_AI_PROVIDER=deepseek` are set, and they must only be run after the owner approves that batch.
 
 ## Start the API
 
@@ -40,7 +59,12 @@ Render uses `backend/` as its working directory and starts `uvicorn app.main:app
 .\.venv\Scripts\python.exe -m backend.scripts.migrate
 .\.venv\Scripts\python.exe -m backend.scripts.setup_storage
 .\.venv\Scripts\python.exe -m backend.scripts.cleanup_storage
+.\.venv\Scripts\python.exe -m backend.scripts.sync_outcomes
 ```
+
+`tests/test_question_files.py` is the acceptance gate for every `data/*.json` file. It checks file names, topic placement, IDs, outcome codes, controlled skills, marks, mark-scheme entries, prompt blocks and response types, and names the exact part and rule when something is wrong. Run it after adding an extracted paper.
+
+`sync_outcomes` regenerates `app/tutoring/catalogue/outcomes.json` from the official outcomes in `frontend/src/data/syllabus.js`, keeping skill aliases. Run it with `--apply` after changing syllabus outcomes.
 
 Import, migration and cleanup commands default to validation or a read-only plan. Add `--apply` to write reviewed changes. Storage setup checks the private bucket by default; `--apply` creates it if needed. SQL migrations remain in `supabase/migrations/`, and curated question JSON remains in `data/` at the repository root.
 
