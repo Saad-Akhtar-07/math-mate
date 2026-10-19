@@ -5,6 +5,7 @@ import hashlib
 
 from ..app.db.connection import connect
 from ..app.core.config import PROJECT_ROOT
+from .targets import add_target_argument, selected_targets
 
 MIGRATIONS = PROJECT_ROOT / 'supabase' / 'migrations'
 
@@ -42,7 +43,10 @@ def migrate(connection, apply=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apply', action='store_true')
+    add_target_argument(parser)
     args = parser.parse_args()
-    with connect() as connection:
-        migrate(connection, args.apply)
-    print('Migrations committed.' if args.apply else 'Plan only; use --apply to migrate.')
+    for target in selected_targets(args.target):
+        print(f'[{target}]')
+        with connect(target=target) as connection:
+            migrate(connection, args.apply)
+        print('Migrations committed.' if args.apply else 'Plan only; use --apply to migrate.')

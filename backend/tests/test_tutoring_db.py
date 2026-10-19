@@ -172,3 +172,18 @@ def test_budget_reservations_block_before_any_request(client, monkeypatch):
     with pytest.raises(BudgetExceeded):
         gateway.ledger.reserve(request, 'deepseek', 'deepseek-flash', Decimal('0.002'))
     assert connection.execute("select count(*) from math_mate.llm_calls where status = 'budget_blocked' and purpose = 'smoke'").fetchone()[0] >= 1
+
+
+def test_waiting_request_returns_the_finished_assessment(client):
+    http, connection = client
+    headers = guest(http)
+    save(http, headers, PART, WRONG)
+    marked = http.post(f'/api/v1/me/responses/{PART}/assessments?wait=true', headers=headers, json={'expected_revision': 1})
+    assert marked.status_code == 200
+    body = marked.json()
+    assert (body['status'], body['marks_awarded'], body['attempt_number']) == ('completed', 0, 1)
+    assert assessments(http, headers)[0] == body
+    # Asking again returns the same finished job without marking it twice.
+    before = calls(connection, 'marker')
+    again = http.post(f'/api/v1/me/responses/{PART}/assessments?wait=true', headers=headers, json={'expected_revision': 1})
+    assert again.status_code == 200 and again.json()['id'] == body['id'] and calls(connection, 'marker') == before

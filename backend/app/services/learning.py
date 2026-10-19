@@ -1,47 +1,72 @@
-"""Record learning evidence and maintain the mastery projection inside the caller's transaction."""
+"""Record learning evidence and maintain the mastery projection inside the caller's transaction.
+
+Each statement is a network round trip, so evidence is written and read in
+batches: one insert for all events, then a fixed number of statements however
+many outcomes an assessment touches.
+"""
 
 from ..tutoring import catalogue
 from ..tutoring.learner_model import FORMULA_VERSION, DEFAULT_PRIOR, assessment_evidence, mastery, resolution_evidence
 
 
 def insert_events(cursor, learner_id, part_id, source_kind, source_id, events):
-    inserted = 0
-    for event in events:
-        # The unique index makes recording the same source twice a no-op.
-        cursor.execute('''insert into math_mate.learning_events
-            (learner_id, question_part_id, outcome_code, kind, score, weight, misconception_id, source_kind, source_id)
-            values (%s, %s, %s, %s, %s, %s, %s, %s, %s) on conflict do nothing''',
-            (learner_id, part_id, event.outcome_code, event.kind, event.score, event.weight,
-             event.misconception_id, source_kind, source_id))
-        inserted += cursor.rowcount
-    return inserted
+    if not events:
+        return 0
+    # The unique index makes recording the same source twice a no-op.
+    cursor.execute('''insert into math_mate.learning_events
+        (learner_id, question_part_id, outcome_code, kind, score, weight, misconception_id, source_kind, source_id)
+        select %s, %s, e.outcome_code, e.kind, e.score, e.weight, e.misconception_id, %s, %s
+        from unnest(%s::text[], %s::text[], %s::numeric[], %s::numeric[], %s::text[])
+            as e(outcome_code, kind, score, weight, misconception_id)
+        on conflict do nothing returning id''',
+        (learner_id, part_id, source_kind, source_id,
+         [event.outcome_code for event in events], [event.kind for event in events],
+         [event.score for event in events], [event.weight for event in events],
+         [event.misconception_id for event in events]))
+    return len(cursor.fetchall())
 
 
 def refresh_outcomes(cursor, learner_id, codes):
     known = catalogue.outcomes()
-    for code in sorted(codes):
-        cursor.execute('''select score, weight, created_at from math_mate.learning_events
-            where learner_id = %s and outcome_code = %s and kind = 'attempt' ''', (learner_id, code))
-        attempts = [(row['score'], row['weight'], row['created_at']) for row in cursor.fetchall()]
-        if not attempts:
+    codes = sorted(codes)
+    siblings = {code: [item.code for item in known.values()
+                       if item.subtopic == catalogue.subtopic_of(code) and item.code != code] for code in codes}
+    cursor.execute('''select outcome_code, score, weight, created_at from math_mate.learning_events
+        where learner_id = %s and outcome_code = any(%s) and kind = 'attempt' ''', (learner_id, codes))
+    attempts = {}
+    for row in cursor.fetchall():
+        attempts.setdefault(row['outcome_code'], []).append((row['score'], row['weight'], row['created_at']))
+    cursor.execute('''select outcome_code, mastery from math_mate.learner_outcome_state
+        where learner_id = %s and outcome_code = any(%s)''',
+        (learner_id, sorted({code for group in siblings.values() for code in group})))
+    states = {row['outcome_code']: float(row['mastery']) for row in cursor.fetchall()}
+    rows = []
+    for code in codes:
+        if code not in attempts:
             continue
-        siblings = [item.code for item in known.values() if item.subtopic == catalogue.subtopic_of(code) and item.code != code]
-        cursor.execute('''select avg(mastery) as prior from math_mate.learner_outcome_state
-            where learner_id = %s and outcome_code = any(%s)''', (learner_id, siblings))
-        prior = cursor.fetchone()['prior']
-        value, confidence, weight = mastery(attempts, float(prior) if prior is not None else DEFAULT_PRIOR)
-        cursor.execute('''insert into math_mate.learner_outcome_state
-            (learner_id, outcome_code, mastery, confidence, evidence_weight, attempts, independent_full_marks,
-             last_evidence_at, formula_version)
-            values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            on conflict (learner_id, outcome_code) do update set mastery = excluded.mastery,
-                confidence = excluded.confidence, evidence_weight = excluded.evidence_weight,
-                attempts = excluded.attempts, independent_full_marks = excluded.independent_full_marks,
-                last_evidence_at = excluded.last_evidence_at, formula_version = excluded.formula_version,
-                updated_at = now()''',
-            (learner_id, code, value, confidence, weight, len(attempts),
-             sum(1 for score, w, _ in attempts if float(score) == 1 and float(w) == 1),
-             max(created for _, _, created in attempts), FORMULA_VERSION))
+        # The prior is the mean mastery of the other outcomes in this subtopic,
+        # including any refreshed earlier in this loop.
+        priors = [states[item] for item in siblings[code] if item in states]
+        value, confidence, weight = mastery(attempts[code], sum(priors) / len(priors) if priors else DEFAULT_PRIOR)
+        states[code] = value
+        history = attempts[code]
+        rows.append((code, value, confidence, weight, len(history),
+                     sum(1 for score, w, _ in history if float(score) == 1 and float(w) == 1),
+                     max(created for _, _, created in history)))
+    if not rows:
+        return
+    columns = list(zip(*rows))
+    cursor.execute('''insert into math_mate.learner_outcome_state
+        (learner_id, outcome_code, mastery, confidence, evidence_weight, attempts, independent_full_marks,
+         last_evidence_at, formula_version)
+        select %s, r.*, %s from unnest(%s::text[], %s::numeric[], %s::numeric[], %s::numeric[], %s::int[], %s::int[],
+            %s::timestamptz[]) as r
+        on conflict (learner_id, outcome_code) do update set mastery = excluded.mastery,
+            confidence = excluded.confidence, evidence_weight = excluded.evidence_weight,
+            attempts = excluded.attempts, independent_full_marks = excluded.independent_full_marks,
+            last_evidence_at = excluded.last_evidence_at, formula_version = excluded.formula_version,
+            updated_at = now()''',
+        (learner_id, FORMULA_VERSION, *[list(column) for column in columns]))
 
 
 def record_assessment(cursor, learner_id, part_id, assessment_id, context, mark_result, independent, solution_shown):
@@ -60,52 +85,57 @@ def record_resolution(cursor, learner_id, part_id, session_id):
     insert_events(cursor, learner_id, part_id, 'tutor_session', session_id, resolution_evidence(observed))
 
 
-def outcome_state(cursor, learner_id, code):
-    cursor.execute('''select mastery, confidence from math_mate.learner_outcome_state
-        where learner_id = %s and outcome_code = %s''', (learner_id, code))
-    row = cursor.fetchone()
-    return (float(row['mastery']), float(row['confidence'])) if row else (None, 0.0)
+def tutor_profile(cursor, learner_id, codes):
+    """Everything the tutor needs about the learner, read in one round trip."""
+    cursor.execute('''select
+        (select coalesce(jsonb_object_agg(outcome_code, jsonb_build_object(
+                'mastery', mastery, 'confidence', confidence, 'attempts', attempts)), '{}')
+            from math_mate.learner_outcome_state
+            where learner_id = %(learner)s and outcome_code = any(%(codes)s)) as states,
+        (select coalesce(jsonb_object_agg(misconception_id, seen), '{}') from (
+            select misconception_id, count(*) as seen from math_mate.learning_events
+            where learner_id = %(learner)s and kind = 'misconception_observed'
+            group by misconception_id) counts) as misconceptions_seen,
+        (select coalesce(jsonb_agg(jsonb_build_object('id', misconception_id, 'seen', seen) order by seen desc), '[]') from (
+            select misconception_id, count(*) filter (where kind = 'misconception_observed') as seen
+            from math_mate.learning_events
+            where learner_id = %(learner)s and misconception_id is not null and created_at > now() - interval '90 days'
+            group by misconception_id
+            having count(*) filter (where kind = 'misconception_observed') > count(*) filter (where kind = 'misconception_resolved')
+            order by seen desc limit 2) recurring) as recurring,
+        (select round(avg(max_assistance)) from (select max_assistance from math_mate.tutor_sessions
+            where learner_id = %(learner)s and state <> 'active' order by updated_at desc limit 5) recent) as help_level''',
+        {'learner': learner_id, 'codes': list(codes)})
+    return cursor.fetchone()
 
 
-def misconception_seen(cursor, learner_id, misconception_id):
+def outcome_state(profile, code):
+    state = profile['states'].get(code) if code else None
+    return (float(state['mastery']), float(state['confidence'])) if state else (None, 0.0)
+
+
+def misconception_seen(profile, misconception_id):
     if not misconception_id or misconception_id == 'other':
         return 0
-    cursor.execute('''select count(*) as seen from math_mate.learning_events
-        where learner_id = %s and misconception_id = %s and kind = 'misconception_observed' ''',
-        (learner_id, misconception_id))
-    return cursor.fetchone()['seen']
+    return profile['misconceptions_seen'].get(misconception_id, 0)
 
 
-def learner_card(cursor, learner_id, context):
+def learner_card(profile, context):
     """At most four short lines for the tutor. Never shown to the Marker."""
     known, items = catalogue.outcomes(), catalogue.misconceptions()
-    cursor.execute('''select outcome_code, mastery, confidence, attempts from math_mate.learner_outcome_state
-        where learner_id = %s and outcome_code = any(%s)''', (learner_id, list(context.candidate_outcomes)))
-    states = {row['outcome_code']: row for row in cursor.fetchall()}
     parts = []
     for code in context.candidate_outcomes:
-        row = states.get(code)
-        if row and float(row['confidence']) >= 0.3:
-            value = float(row['mastery'])
+        state = profile['states'].get(code)
+        if state and float(state['confidence']) >= 0.3:
+            value = float(state['mastery'])
             label = 'strong' if value >= 0.75 else 'developing' if value >= 0.5 else 'weak'
-            parts.append(f'{known[code].text}: {label} ({row["attempts"]} attempts)')
+            parts.append(f'{known[code].text}: {label} ({state["attempts"]} attempts)')
         else:
             parts.append(f'{known[code].text}: not enough practice yet')
     lines = ['; '.join(parts[:3])] if parts else []
-    cursor.execute('''select misconception_id,
-            count(*) filter (where kind = 'misconception_observed') as seen,
-            count(*) filter (where kind = 'misconception_resolved') as fixed
-        from math_mate.learning_events
-        where learner_id = %s and misconception_id is not null and created_at > now() - interval '90 days'
-        group by misconception_id
-        having count(*) filter (where kind = 'misconception_observed') > count(*) filter (where kind = 'misconception_resolved')
-        order by seen desc limit 2''', (learner_id,))
-    for row in cursor.fetchall():
-        if row['misconception_id'] in items:
-            lines.append(f'Recurring difficulty: {items[row["misconception_id"]].description} (seen {row["seen"]} times).')
-    cursor.execute('''select round(avg(max_assistance)) as level from (select max_assistance from math_mate.tutor_sessions
-        where learner_id = %s and state <> 'active' order by updated_at desc limit 5) recent''', (learner_id,))
-    level = cursor.fetchone()['level']
-    if level is not None:
-        lines.append(f'On recent finished questions this student needed help up to level {int(level)} of 5.')
+    for item in profile['recurring']:
+        if item['id'] in items:
+            lines.append(f'Recurring difficulty: {items[item["id"]].description} (seen {item["seen"]} times).')
+    if profile['help_level'] is not None:
+        lines.append(f'On recent finished questions this student needed help up to level {int(profile["help_level"])} of 5.')
     return '\n'.join(lines[:4])

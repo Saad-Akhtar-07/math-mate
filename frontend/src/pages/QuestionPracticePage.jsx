@@ -21,6 +21,7 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import InlineContent from '../components/notes/InlineContent.jsx'
+import TutorText from '../components/TutorText.jsx'
 import ContentBlockRenderer from '../components/question-renderer/ContentBlockRenderer.jsx'
 import ReaderShell from '../components/ReaderShell.jsx'
 import SolutionImage from '../components/SolutionImage.jsx'
@@ -423,14 +424,14 @@ function AiTutorPanel({ topic, question, displayNumber, activePart, reviews, rev
       </div> : <div className="tutor-messages">
         {timeline.map((item) => item.kind === 'review' ? <div className="tutor-message assistant" key={`review-${item.value.id}`}>
           <span>{reviewLabel(item.value)}</span>
-          <p>{item.value.feedback || item.value.error_message || (['pending', 'processing'].includes(item.value.status) ? 'Your saved work is being reviewed.' : 'This review did not complete.')}</p>
-          {item.value.what_i_read && <details className="tutor-what-i-read"><summary>What I read</summary><p>{item.value.what_i_read}</p></details>}
+          <p><TutorText text={item.value.feedback || item.value.error_message || (['pending', 'processing'].includes(item.value.status) ? 'Your saved work is being reviewed.' : 'This review did not complete.')} /></p>
+          {item.value.what_i_read && <details className="tutor-what-i-read"><summary>What I read</summary><p><TutorText text={item.value.what_i_read} /></p></details>}
           {item.value.status === 'completed' && <ReadAloud speech={speech} type="review" id={item.value.id} disabled={voiceInput.state !== 'idle'} />}
         </div> : <div className="tutor-chat-turn" key={`chat-${item.value.client_message_id}`}>
           <div className="tutor-message student"><span>You</span><p>{item.value.learner_message}</p></div>
-          {item.value.status === 'completed' && <div className="tutor-message assistant"><span>{teachingMoveLabels[item.value.teaching_move] || 'Tutor'}</span><p>{item.value.tutor_message}</p><ReadAloud speech={speech} type="chat" id={item.value.id} disabled={voiceInput.state !== 'idle'} /></div>}
+          {item.value.status === 'completed' && <div className="tutor-message assistant"><span>{teachingMoveLabels[item.value.teaching_move] || 'Tutor'}</span><p><TutorText text={item.value.tutor_message} /></p><ReadAloud speech={speech} type="chat" id={item.value.id} disabled={voiceInput.state !== 'idle'} /></div>}
           {['pending', 'processing'].includes(item.value.status) && (item.value.tutor_message
-            ? <div className="tutor-message assistant"><span>{teachingMoveLabels[item.value.teaching_move] || 'Tutor'}</span><p>{item.value.tutor_message}</p></div>
+            ? <div className="tutor-message assistant"><span>{teachingMoveLabels[item.value.teaching_move] || 'Tutor'}</span><p><TutorText text={item.value.tutor_message} /></p></div>
             : <div className="tutor-message assistant"><span>Thinking</span><p className="tutor-thinking"><LoaderCircle className="spin" size={15} /> Preparing useful guidance…</p></div>)}
           {item.value.status === 'failed' && <div className="tutor-message assistant is-error" role="alert"><span>Message saved</span><p>{item.value.error_message || 'I could not answer just now.'}</p><button type="button" className="tutor-retry-button" disabled={isBusy} onClick={() => onRetryMessage(activePart, item.value)}>Retry</button></div>}
         </div>)}

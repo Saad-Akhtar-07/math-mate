@@ -1,4 +1,4 @@
-"""Policy v1 rule table: one check per rule plus the escalation ladder."""
+"""Policy rule table: one check per rule plus the escalation ladder."""
 
 import pytest
 
@@ -38,12 +38,18 @@ def test_rules_in_order(overrides, move, level, reason):
     ({'mistake_type': 'calculation', 'mastery': 0.8, 'confidence': 0.6}, 1),
     ({'mistake_type': 'calculation', 'mastery': 0.8, 'confidence': 0.2}, 2),
     ({'misconception_seen': 2}, 3),
-    ({'mistake_type': 'conceptual', 'mastery': 0.3}, 3),
+    ({'mistake_type': 'conceptual', 'mastery': 0.3, 'confidence': 0.6}, 3),
+    ({'mistake_type': 'conceptual', 'mastery': 0.33, 'confidence': 0.33}, 2),
     ({'observation': seen(affect='frustrated')}, 3),
 ])
 def test_first_help_level_adapts_to_the_learner(overrides, level):
     decision = decide(state(**overrides))
     assert decision.level == level and decision.reason == 'first_help'
+
+
+def test_the_hint_button_starts_with_a_small_hint():
+    decision = decide(state(intent='hint', observation=None, misconception_seen=3))
+    assert (decision.move, decision.level) == ('formula_reminder', 2)
 
 
 def test_repeated_failure_escalates_but_never_reveals_the_answer_by_hint():

@@ -1,6 +1,8 @@
 """Server-only private Supabase Storage access. Never log keys or signed URLs."""
 
 import re
+import threading
+import time
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -9,8 +11,25 @@ from .image_processing import MAX_STORED_BYTES
 from ..core.config import storage_settings
 
 
+# One keep-alive client for all requests: a new client per call paid a fresh
+# TLS handshake to Supabase every time.
+_client = None
+_client_lock = threading.Lock()
+# Buckets confirmed private recently. Re-checked periodically, not on every upload.
+BUCKET_CHECK_SECONDS = 600
+_verified = {}
+
+
 class StorageError(RuntimeError):
     pass
+
+
+def client():
+    global _client
+    with _client_lock:
+        if _client is None:
+            _client = httpx.Client(timeout=httpx.Timeout(30, connect=8))
+        return _client
 
 
 class Storage:
@@ -33,13 +52,14 @@ class Storage:
             headers['Authorization'] = f'Bearer {self.key}'
         headers.update(kwargs.pop('headers', {}))
         try:
-            with httpx.Client(timeout=httpx.Timeout(30, connect=8)) as client:
-                response = client.request(method, f'{self.url}/storage/v1{path}', headers=headers, **kwargs)
+            response = client().request(method, f'{self.url}/storage/v1{path}', headers=headers, **kwargs)
         except httpx.HTTPError:
             raise StorageError('Image storage could not be reached. Your typed work is still saved.') from None
         return response
 
     def ensure_bucket(self, create=False):
+        if not create and _verified.get((self.url, self.bucket), 0) > time.monotonic():
+            return
         response = self.request('GET', f'/bucket/{self.bucket}')
         # Storage can wrap a missing bucket's 404 in an HTTP 400 response.
         missing = response.status_code == 404
@@ -61,6 +81,7 @@ class Storage:
             raise StorageError('Private image bucket is unavailable. Run python -m backend.scripts.setup_storage --apply after configuring storage credentials.')
         if response.json().get('public') is not False:
             raise StorageError('The solution image bucket must be private. Uploads are disabled until this is corrected.')
+        _verified[(self.url, self.bucket)] = time.monotonic() + BUCKET_CHECK_SECONDS
 
     def put(self, object_key, data):
         self.ensure_bucket()

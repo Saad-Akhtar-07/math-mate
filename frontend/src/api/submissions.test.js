@@ -94,12 +94,31 @@ test('marking requests and results use the guest token', async () => {
   const requests = []
   globalThis.fetch = async (url, options) => {
     requests.push({ url, options })
-    return new Response(JSON.stringify(url.includes('/assessments?') ? { assessments: [] } : { id: 'a1', status: 'pending' }))
+    return new Response(JSON.stringify(options.method === 'POST' ? { id: 'a1', status: 'completed' } : { assessments: [] }))
   }
   assert.deepEqual(await getTutorReviews('2'), [])
-  assert.equal((await requestTutorReview('part-1', 3)).status, 'pending')
+  assert.equal((await requestTutorReview('part-1', 3)).status, 'completed')
   assert.ok(requests[0].url.endsWith('/api/v1/me/assessments?topic_number=2'))
-  assert.ok(requests[1].url.endsWith('/api/v1/me/responses/part-1/assessments'))
+  assert.ok(requests[1].url.endsWith('/api/v1/me/responses/part-1/assessments?wait=true'))
   assert.deepEqual(JSON.parse(requests[1].options.body), { expected_revision: 3 })
   assert.ok(requests.every((request) => request.options.headers.Authorization === 'Bearer guest-token'))
+})
+
+test('a rejected guest token is replaced by a new guest session once', async () => {
+  const store = new Map([['math-mate-guest-session-v1', guest]])
+  globalThis.localStorage = { getItem: (key) => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: (key) => store.delete(key) }
+  const requests = []
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, auth: options.headers.Authorization })
+    if (url.endsWith('/learner-sessions')) {
+      return new Response(JSON.stringify({ access_token: 'new-token', expires_at: '2999-01-01T00:00:00Z' }), { status: 201 })
+    }
+    if (options.headers.Authorization === 'Bearer guest-token') {
+      return new Response(JSON.stringify({ detail: 'Guest session expired or invalid.' }), { status: 401 })
+    }
+    return new Response(JSON.stringify({ assessments: [] }))
+  }
+  assert.deepEqual(await getTutorReviews('2'), [])
+  assert.deepEqual(requests.map((request) => request.auth ?? 'none'), ['Bearer guest-token', 'none', 'Bearer new-token'])
+  assert.equal(JSON.parse(store.get('math-mate-guest-session-v1')).access_token, 'new-token')
 })

@@ -8,7 +8,7 @@ const guestKey = 'math-mate-guest-session-v1'
 let values
 beforeEach(() => {
   values = new Map([[guestKey, JSON.stringify({ access_token: 'private-test-token', expires_at: '2099-01-01T00:00:00Z' })]])
-  globalThis.localStorage = { getItem: (key) => values.get(key) || null, setItem: (key, value) => values.set(key, value) }
+  globalThis.localStorage = { getItem: (key) => values.get(key) || null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) }
 })
 afterEach(() => { globalThis.fetch = originalFetch; delete globalThis.localStorage; delete globalThis.XMLHttpRequest; FakeXMLHttpRequest.reset() })
 
@@ -33,12 +33,21 @@ test('all response pages are restored', async () => {
   assert.equal((await getStudentResponses('2')).length, 2)
 })
 
-test('invalid guest credentials fail without creating or replacing a learner', async () => {
+test('invalid guest credentials are replaced by one new guest, without retrying forever', async () => {
   let calls = 0
-  globalThis.fetch = async () => { calls++; return Response.json({ detail: 'Guest session expired or invalid' }, { status: 401 }) }
+  let creations = 0
+  globalThis.fetch = async (url) => {
+    calls++
+    if (url.endsWith('/learner-sessions')) {
+      creations++
+      return Response.json({ access_token: 'replacement-token', expires_at: '2099-01-01T00:00:00Z' })
+    }
+    return Response.json({ detail: 'Guest session expired or invalid' }, { status: 401 })
+  }
   await assert.rejects(submitStudentResponse('part-a', 3), /expired or invalid/)
-  assert.equal(calls, 1)
-  assert.match(values.get(guestKey), /private-test-token/)
+  assert.equal(calls, 3)
+  assert.equal(creations, 1)
+  assert.match(values.get(guestKey), /replacement-token/)
 })
 
 test('concurrent first requests create one guest and persist its credential', async () => {

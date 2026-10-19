@@ -6,6 +6,7 @@ import json
 from psycopg.types.json import Jsonb
 
 from ..app.db.connection import connect
+from .targets import add_target_argument, selected_targets
 from ..app.core.config import PROJECT_ROOT
 
 
@@ -144,14 +145,20 @@ on conflict (id) do update set
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Create the first table if needed and write all questions")
+    add_target_argument(parser)
     args = parser.parse_args()
     files, rows = read_rows()
     print(f"Validated {len(rows)} questions from {len(files)} JSON files.")
     if not args.apply:
-        print("Dry run only. Use --apply to write to Supabase.")
+        print("Dry run only. Use --apply to write to the database.")
         return
+    for target in selected_targets(args.target):
+        print(f"[{target}]")
+        import_rows(rows, target)
 
-    with connect() as connection:
+
+def import_rows(rows, target):
+    with connect(target=target) as connection:
         if connection.execute("select to_regclass('math_mate.questions')").fetchone()[0] is None:
             connection.execute(MIGRATION.read_text(encoding="utf-8"))
         with connection.cursor() as cursor:

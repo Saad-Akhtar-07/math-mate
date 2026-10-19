@@ -10,10 +10,25 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(PROJECT_ROOT / '.env')
 
-DATABASE_ENV_KEYS = (
-    'SUPABASE_DB_HOST', 'SUPABASE_DB_PORT', 'SUPABASE_DB_NAME',
-    'SUPABASE_DB_USER', 'SUPABASE_DB_PASSWORD',
-)
+# MATH_MATE_DB selects the database: `supabase` (the default, and what Render
+# uses) or `local`, a development PostgreSQL. Each reads its own prefixed keys.
+DATABASE_TARGETS = {'supabase': 'SUPABASE_DB', 'local': 'LOCAL_DB'}
+DATABASE_FIELDS = ('HOST', 'PORT', 'NAME', 'USER', 'PASSWORD')
+
+
+def database_target():
+    target = os.getenv('MATH_MATE_DB', '').strip().lower() or 'supabase'
+    if target not in DATABASE_TARGETS:
+        raise RuntimeError(f"MATH_MATE_DB must be one of: {', '.join(DATABASE_TARGETS)}")
+    return target
+
+
+def database_env_keys(target):
+    return tuple(f'{DATABASE_TARGETS[target]}_{field}' for field in DATABASE_FIELDS)
+
+
+def database_configured(target):
+    return all(os.getenv(key) for key in database_env_keys(target))
 
 
 def cors_origins():

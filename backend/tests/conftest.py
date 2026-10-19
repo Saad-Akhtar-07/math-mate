@@ -15,11 +15,12 @@ from backend.app.ai import gateway
 from backend.app.ai.providers import reset_fake_provider
 from backend.app.core.config import PROJECT_ROOT
 
-# Sentinel table and migration, applied inside the rolled-back test transaction when missing.
+# Sentinel table or function and its migration, applied inside the rolled-back test transaction when missing.
 MIGRATIONS = (
     ('student_responses', '20261016000000_learner_solutions.sql'),
     ('solution_files', '20261016010000_solution_images.sql'),
     ('assessments', '20261020000000_ai_tutoring.sql'),
+    ('reserve_llm_call', '20261021000000_llm_call_reservation.sql'),
 )
 
 
@@ -72,15 +73,18 @@ def client(monkeypatch):
 
     with connect() as connection, connection.transaction(force_rollback=True):
         for table, filename in MIGRATIONS:
-            if connection.execute('select to_regclass(%s)', (f'math_mate.{table}',)).fetchone()[0] is None:
+            name = f'math_mate.{table}'
+            if connection.execute('select coalesce(to_regclass(%s)::text, to_regproc(%s)::text)', (name, name)).fetchone()[0] is None:
                 connection.execute((PROJECT_ROOT / 'supabase/migrations' / filename).read_text(encoding='utf-8'))
 
         @contextmanager
-        def request_connection():
+        def request_connection(autocommit=False):
             # A failed request rolls back its own savepoint, as in production.
             with connection.transaction():
                 yield connection
         for module in (dependencies, questions, sessions, responses, uploads, storage_cleanup,
                        assessments, tutoring, gateway):
             monkeypatch.setattr(module, 'connect', request_connection)
+        # Tests change sessions directly in the database, so verify every token.
+        monkeypatch.setattr(dependencies, 'SESSION_CACHE_SECONDS', 0)
         yield TestClient(api.app), connection

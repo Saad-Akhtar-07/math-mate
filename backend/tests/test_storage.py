@@ -5,6 +5,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
+from backend.app.services import storage as storage_module
 from backend.app.services.storage import Storage, StorageError
 from backend.app.middleware.upload_limits import UploadBodyLimit
 
@@ -14,6 +15,9 @@ def storage(monkeypatch):
     monkeypatch.setenv('SUPABASE_URL', 'https://storage.example.test')
     monkeypatch.setenv('SUPABASE_SECRET_KEY', 'sb_secret_test')
     monkeypatch.setenv('MATH_MATE_STORAGE_BUCKET', 'test-solutions')
+    # The shared client and bucket check are created lazily, so each test sees its own mock transport.
+    monkeypatch.setattr(storage_module, '_client', None)
+    monkeypatch.setattr(storage_module, '_verified', {})
     return Storage()
 
 
@@ -47,6 +51,20 @@ def test_public_bucket_is_rejected_and_signed_urls_are_short_lived(storage, monk
         return httpx.Response(200, json={'signedURL': '/object/sign/test-solutions/page.jpg?token=temporary'})
     monkeypatch.setattr(storage, 'request', request)
     assert storage.signed_url('test-solutions', 'page.jpg') == 'https://storage.example.test/storage/v1/object/sign/test-solutions/page.jpg?token=temporary'
+
+
+def test_a_private_bucket_is_checked_once_per_interval(storage, monkeypatch):
+    calls = []
+    def request(method, path, **kwargs):
+        calls.append((method, path))
+        return httpx.Response(200, json={'public': False})
+    monkeypatch.setattr(storage, 'request', request)
+    storage.ensure_bucket()
+    storage.ensure_bucket()
+    assert calls == [('GET', '/bucket/test-solutions')]
+    monkeypatch.setattr(storage_module, '_verified', {})
+    storage.ensure_bucket()
+    assert len(calls) == 2
 
 
 def test_storage_transport_errors_do_not_expose_credentials(storage, monkeypatch):

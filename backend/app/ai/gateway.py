@@ -21,27 +21,18 @@ logger = logging.getLogger(__name__)
 class DatabaseLedger:
     def reserve(self, request, provider, model, estimate):
         settings = ai_settings()
-        with connect() as connection:
-            # Serialize reservations so concurrent requests cannot overspend together.
-            connection.execute('select pg_advisory_xact_lock(4024, 2)')
-            spent, learner_spent = connection.execute('''select coalesce(sum(cost_usd), 0),
-                    coalesce(sum(cost_usd) filter (where learner_id = %s), 0)
-                from math_mate.llm_calls where created_at >= date_trunc('day', now(), 'UTC')''',
-                (request.learner_id,)).fetchone()
-            blocked = spent + estimate > settings.daily_budget_usd or (
-                request.learner_id is not None and learner_spent + estimate > settings.learner_daily_budget_usd)
-            call_id = connection.execute('''insert into math_mate.llm_calls
-                (purpose, provider, model, prompt_version, status, learner_id, source_id, cost_usd)
-                values (%s, %s, %s, %s, %s, %s, %s, %s) returning id''',
-                (request.purpose, provider, model, request.prompt_version,
-                 'budget_blocked' if blocked else 'pending', request.learner_id, request.source_id,
-                 0 if blocked else estimate)).fetchone()[0]
+        # One round trip: the function takes the budget lock, sums today's spend and inserts the row.
+        with connect(autocommit=True) as connection:
+            call_id, blocked = connection.execute(
+                'select call_id, blocked from math_mate.reserve_llm_call(%s, %s, %s, %s, %s, %s, %s, %s, %s)',
+                (request.purpose, provider, model, request.prompt_version, request.learner_id, request.source_id,
+                 estimate, settings.daily_budget_usd, settings.learner_daily_budget_usd)).fetchone()
         if blocked:
             raise BudgetExceeded()
         return call_id
 
     def settle(self, call_id, status, usage, cost_usd, latency_ms):
-        with connect() as connection:
+        with connect(autocommit=True) as connection:
             connection.execute('''update math_mate.llm_calls set status = %s, cache_hit_tokens = %s,
                 cache_miss_tokens = %s, completion_tokens = %s, reasoning_tokens = %s,
                 cost_usd = coalesce(%s, cost_usd), latency_ms = %s where id = %s''',

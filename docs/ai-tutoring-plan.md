@@ -542,7 +542,7 @@ The rules are checked in order; the first match wins:
 | 5 | Intent `explain` | `explain_concept` |
 | 6 | `asks_for_answer` and (`level >= 4` or `no_progress_streak >= 2`) | `full_solution` |
 | 7 | `asks_for_answer` otherwise | Level + 1 |
-| 8 | First help on this mistake | Start level: 1 if `mastery ≥ 0.7`, `confidence ≥ 0.5` and type `calculation`; 3 if misconception `seen_before ≥ 2`, or type `conceptual` with `mastery < 0.4`; else 2 |
+| 8 | First help on this mistake | Start level: 1 if `mastery ≥ 0.7`, `confidence ≥ 0.5` and type `calculation`; 3 if misconception `seen_before ≥ 2`, or type `conceptual` with `mastery < 0.4` and `confidence ≥ 0.5`; else 2. A Hint-button request starts at level 2 at most (policy-v2, 19 October 2026: one attempt had pushed a hint request to a long concept explanation) |
 | 9 | `attempt_result == 'partial'` | Same level, alternate move at that level |
 | 10 | `incorrect`/`none`, or intent `hint` | Level + 1 (capped at 4; 5 only via rules 1 and 6) |
 | 11 | `affect == 'frustrated'` | Also +1 level and `tone='warm'` |

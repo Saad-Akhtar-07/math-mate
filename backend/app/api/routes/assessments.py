@@ -1,6 +1,11 @@
-"""AI marking endpoints. Marking runs after the response is sent; the client polls the list."""
+"""AI marking endpoints.
 
-from fastapi import APIRouter, BackgroundTasks, Query
+By default marking runs after the response is sent and the client polls the list.
+With ?wait=true the request marks inline and returns 200 with the finished result,
+or 202 if the job is still running elsewhere.
+"""
+
+from fastapi import APIRouter, BackgroundTasks, Query, Response
 
 from ..dependencies import Learner
 from ...schemas.tutoring import RequestAssessment
@@ -10,8 +15,12 @@ router = APIRouter(prefix='/api/v1/me')
 
 
 @router.post('/responses/{part_id}/assessments', status_code=202)
-def request_assessment(part_id: str, body: RequestAssessment, owner: Learner, background: BackgroundTasks):
-    return assessments.request_assessment(part_id, body, owner, background.add_task)
+def request_assessment(part_id: str, body: RequestAssessment, owner: Learner, background: BackgroundTasks,
+                       response: Response, wait: bool = Query(False)):
+    result = assessments.request_assessment(part_id, body, owner, background.add_task, wait)
+    if result['status'] not in ('pending', 'processing'):
+        response.status_code = 200
+    return result
 
 
 @router.get('/assessments')

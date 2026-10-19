@@ -66,6 +66,8 @@ Render uses `backend/` as its working directory and starts `uvicorn app.main:app
 
 `sync_outcomes` regenerates `app/tutoring/catalogue/outcomes.json` from the official outcomes in `frontend/src/data/syllabus.js`, keeping skill aliases. Run it with `--apply` after changing syllabus outcomes.
 
+`MATH_MATE_DB=supabase|local` in `.env` switches the API, tests and scripts between Supabase and a local PostgreSQL (`LOCAL_DB_*`). `migrate`, `import_questions` and `check_db` accept `--target all` to act on both, so the schemas stay identical.
+
 Import, migration and cleanup commands default to validation or a read-only plan. Add `--apply` to write reviewed changes. Storage setup checks the private bucket by default; `--apply` creates it if needed. SQL migrations remain in `supabase/migrations/`, and curated question JSON remains in `data/` at the repository root.
 
 See [the database schema guide](../docs/database-schema.md) for schema decisions, migration steps, file lifecycle and private Storage setup.

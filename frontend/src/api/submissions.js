@@ -133,10 +133,26 @@ async function guestToken() {
   return guestPromise
 }
 
+function forgetGuest(token) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || 'null')
+    if (stored?.access_token === token) localStorage.removeItem(GUEST_STORAGE_KEY)
+  } catch { /* Nothing stored to forget. */ }
+}
+
 async function guestRequest(path, options = {}) {
+  const send = (token) => apiRequest(path, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } })
   const token = await guestToken()
-  // Never silently replace an invalid identity and send existing work to it.
-  return apiRequest(path, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } })
+  try {
+    return await send(token)
+  } catch (error) {
+    if (error.status !== 401) throw error
+    // MVP: guest identities are disposable until student login arrives. A token the
+    // server does not know (expired, or another database via MATH_MATE_DB) is
+    // replaced by a new guest once; work saved under the old token stays there.
+    forgetGuest(token)
+    return send(await guestToken())
+  }
 }
 
 export function submitStudentResponse(partId, expectedRevision) {
@@ -183,13 +199,14 @@ export async function getTutorReviews(topicNumber) {
   return data.assessments
 }
 
-// Submits the saved revision and queues AI marking; poll getTutorReviews for the result.
+// Submits the saved revision and waits for AI marking, so no polling is needed.
+// If the connection drops first, marking still finishes and getTutorReviews shows it.
 export function requestTutorReview(questionPartId, expectedRevision) {
-  return guestRequest(`/me/responses/${encodeURIComponent(questionPartId)}/assessments`, {
+  return guestRequest(`/me/responses/${encodeURIComponent(questionPartId)}/assessments?wait=true`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ expected_revision: expectedRevision }),
-    timeoutMs: 30000,
+    timeoutMs: 120000,
   })
 }
 

@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 
 from .schemas import Observation
 
-POLICY_VERSION = 'policy-v1'
+POLICY_VERSION = 'policy-v2'   # v2: mastery shifts the start level only with confidence; Hint starts at most at level 2
 TURN_CAP = 15
 MAX_HINT_LEVEL = 4   # level 5 (full solution) only via the turn cap or repeated answer requests
 ASSISTANCE = {
@@ -54,9 +54,11 @@ class Decision:
 
 
 def start_level(state):
-    if state.misconception_seen >= 2 or (state.mistake_type == 'conceptual' and state.mastery is not None and state.mastery < 0.4):
+    # Mastery from one or two attempts is mostly the prior, so it only moves the start with confidence.
+    trusted = state.mastery is not None and state.confidence >= 0.5
+    if state.misconception_seen >= 2 or (state.mistake_type == 'conceptual' and trusted and state.mastery < 0.4):
         return 3
-    if state.mistake_type == 'calculation' and state.mastery is not None and state.mastery >= 0.7 and state.confidence >= 0.5:
+    if state.mistake_type == 'calculation' and trusted and state.mastery >= 0.7:
         return 1
     return 2
 
@@ -105,6 +107,9 @@ def decide(state: TutorState) -> Decision:
     tone, bonus = ('warm', 1) if frustrated else ('neutral', 0)
     if state.level == 0:
         level = min(MAX_HINT_LEVEL, start_level(state) + bonus)
+        if state.intent == 'hint':
+            # The Hint button promises one small hint; Explain asks for more.
+            level = min(level, 2)
         streak = 'increase' if observation and observation.attempt_result in ('incorrect', 'none') else 'keep'
         return Decision(move_for(level, state.mistake_type), level, 'first_help', tone, streak=streak)
     if observation and observation.attempt_result == 'partial':

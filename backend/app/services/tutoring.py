@@ -47,18 +47,6 @@ class TurnPlan:
     misconception_seen: int
 
 
-def load_part_context(cursor, part_id):
-    cursor.execute('''select q.question_data from math_mate.questions q
-        join math_mate.question_parts p on p.question_id = q.id where p.id = %s and p.active''', (part_id,))
-    row = cursor.fetchone()
-    try:
-        if row:
-            return build_part_context(row['question_data'], part_id)
-    except KeyError:
-        pass
-    raise HTTPException(404, 'Question part not found or retired')
-
-
 def serialize_turn(row, part_id):
     failed = row['status'] == 'failed'
     return {
@@ -100,8 +88,12 @@ def _active_session(cursor, owner, part_id):
     if session:
         return session
     cursor.execute('''insert into math_mate.tutor_sessions (learner_id, question_part_id, policy_version)
-        values (%s, %s, %s) on conflict (learner_id, question_part_id) where state = 'active' do nothing''',
-        (owner, part_id, policy.POLICY_VERSION))
+        values (%s, %s, %s) on conflict (learner_id, question_part_id) where state = 'active' do nothing
+        returning *''', (owner, part_id, policy.POLICY_VERSION))
+    session = cursor.fetchone()
+    if session:
+        return session
+    # Another request created it first.
     cursor.execute('''select * from math_mate.tutor_sessions
         where learner_id = %s and question_part_id = %s and state = 'active' for update''', (owner, part_id))
     return cursor.fetchone()
@@ -114,59 +106,86 @@ def _ensure_idle(cursor, session_id, turn_id=None):
         raise HTTPException(409, 'The tutor is still answering your previous message.')
 
 
+def _insert_turn(cursor, session, owner, body):
+    # Insert only while no other reply is in progress; a reply stuck for over two
+    # minutes counts as interrupted, as sweep_stale_turns would mark it.
+    cursor.execute('''insert into math_mate.tutor_turns (session_id, learner_id, client_message_id, intent, learner_message)
+        select %s, %s, %s, %s, %s where not exists (select 1 from math_mate.tutor_turns
+            where session_id = %s and status = 'processing' and updated_at >= now() - interval '2 minutes')
+        returning *''', (session['id'], owner, body.client_message_id, body.intent, body.message, session['id']))
+    turn = cursor.fetchone()
+    if not turn:
+        raise HTTPException(409, 'The tutor is still answering your previous message.')
+    return turn
+
+
+def _retry_turn(cursor, owner, part_id, body):
+    """A repeated client message: returns (saved reply, None), or (turn, session) when a failed turn is claimed again."""
+    sweep_stale_turns(cursor)
+    cursor.execute('''select t.*, s.question_part_id from math_mate.tutor_turns t
+        join math_mate.tutor_sessions s on s.id = t.session_id
+        where t.learner_id = %s and t.client_message_id = %s for update of t''', (owner, body.client_message_id))
+    turn = cursor.fetchone()
+    if turn['question_part_id'] != part_id:
+        raise HTTPException(409, 'This message belongs to another question.')
+    if turn['status'] == 'completed' or (turn['status'] == 'failed' and turn['run_count'] >= 2):
+        return serialize_turn(turn, part_id), None
+    if turn['status'] == 'processing':
+        raise HTTPException(409, 'The tutor is still answering this message.')
+    cursor.execute('select * from math_mate.tutor_sessions where id = %s for update', (turn['session_id'],))
+    session = cursor.fetchone()
+    _ensure_idle(cursor, session['id'], turn['id'])
+    cursor.execute('''update math_mate.tutor_turns set status = 'processing', run_count = run_count + 1,
+        error_code = null, updated_at = now() where id = %s returning *''', (turn['id'],))
+    return cursor.fetchone(), session
+
+
 def start_turn(part_id, body, owner):
     """Commit the turn as processing and gather its context. Returns a TurnPlan, or a finished turn on retry."""
     if not ai_enabled():
         raise HTTPException(503, 'The AI tutor is not available yet. Your work is saved.')
     with connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
-        context = load_part_context(cursor, part_id)
-        sweep_stale_turns(cursor)
-        cursor.execute('''select t.*, s.question_part_id from math_mate.tutor_turns t
-            join math_mate.tutor_sessions s on s.id = t.session_id
-            where t.learner_id = %s and t.client_message_id = %s for update of t''', (owner, body.client_message_id))
-        turn = cursor.fetchone()
-        if turn:
-            if turn['question_part_id'] != part_id:
-                raise HTTPException(409, 'This message belongs to another question.')
-            if turn['status'] == 'completed' or (turn['status'] == 'failed' and turn['run_count'] >= 2):
-                return serialize_turn(turn, part_id)
-            if turn['status'] == 'processing':
-                raise HTTPException(409, 'The tutor is still answering this message.')
-            cursor.execute('select * from math_mate.tutor_sessions where id = %s for update', (turn['session_id'],))
-            session = cursor.fetchone()
-            _ensure_idle(cursor, session['id'], turn['id'])
-            cursor.execute('''update math_mate.tutor_turns set status = 'processing', run_count = run_count + 1,
-                error_code = null, updated_at = now() where id = %s returning *''', (turn['id'],))
-            turn = cursor.fetchone()
+        # One round trip: the question, the saved draft and whether this message was sent before.
+        cursor.execute('''select q.question_data,
+                (select typed_work from math_mate.student_responses
+                    where learner_id = %(owner)s and question_part_id = %(part)s) as typed_work,
+                exists(select 1 from math_mate.tutor_turns
+                    where learner_id = %(owner)s and client_message_id = %(message)s) as seen
+            from math_mate.questions q join math_mate.question_parts p on p.question_id = q.id
+            where p.id = %(part)s and p.active''', {'owner': owner, 'part': part_id, 'message': body.client_message_id})
+        row = cursor.fetchone()
+        try:
+            context = build_part_context(row['question_data'], part_id) if row else None
+        except KeyError:
+            context = None
+        if not context:
+            raise HTTPException(404, 'Question part not found or retired')
+        if row['seen']:
+            turn, session = _retry_turn(cursor, owner, part_id, body)
+            if session is None:
+                return turn
         else:
             session = _active_session(cursor, owner, part_id)
-            _ensure_idle(cursor, session['id'])
-            cursor.execute('''insert into math_mate.tutor_turns (session_id, learner_id, client_message_id, intent, learner_message)
-                values (%s, %s, %s, %s, %s) returning *''',
-                (session['id'], owner, body.client_message_id, body.intent, body.message))
-            turn = cursor.fetchone()
+            turn = _insert_turn(cursor, session, owner, body)
 
-        mistakes = []
-        if session['current_assessment_id']:
-            cursor.execute('select result from math_mate.assessments where id = %s', (session['current_assessment_id'],))
-            row = cursor.fetchone()
-            mistakes = ((row or {}).get('result') or {}).get('mistakes') or []
+        cursor.execute('''select (select result -> 'mistakes' from math_mate.assessments where id = %s) as mistakes,
+            (select coalesce(jsonb_agg(recent order by recent.created_at), '[]') from (
+                select learner_message, tutor_message, teaching_move, created_at from math_mate.tutor_turns
+                where session_id = %s and status = 'completed' order by created_at desc limit 6) recent) as recent''',
+            (session['current_assessment_id'], session['id']))
+        history = cursor.fetchone()
+        mistakes = history['mistakes'] or []
         index = session['mistake_index']
         mistake = mistakes[index] if index < len(mistakes) else None
-        cursor.execute('''select learner_message, tutor_message, teaching_move from math_mate.tutor_turns
-            where session_id = %s and status = 'completed' order by created_at desc limit 6''', (session['id'],))
-        recent = list(reversed(cursor.fetchall()))
-        cursor.execute('''select typed_work from math_mate.student_responses
-            where learner_id = %s and question_part_id = %s''', (owner, part_id))
-        draft = cursor.fetchone()
+        profile = learning.tutor_profile(cursor, owner, {*context.candidate_outcomes, *context.primary_outcomes})
         focus = mistake['outcome_code'] if mistake else (context.primary_outcomes[0] if context.primary_outcomes else None)
-        mastery, confidence = learning.outcome_state(cursor, owner, focus) if focus else (None, 0.0)
+        mastery, confidence = learning.outcome_state(profile, focus)
         plan = TurnPlan(
             owner=owner, part_id=part_id, turn=turn, session=session, context=context, mistake=mistake,
-            mistakes_remaining=max(0, len(mistakes) - index - 1), recent=recent,
-            learner_card=learning.learner_card(cursor, owner, context),
-            typed_work=draft['typed_work'] if draft else '', mastery=mastery, confidence=confidence,
-            misconception_seen=learning.misconception_seen(cursor, owner, (mistake or {}).get('misconception_id')),
+            mistakes_remaining=max(0, len(mistakes) - index - 1), recent=history['recent'],
+            learner_card=learning.learner_card(profile, context),
+            typed_work=row['typed_work'] or '', mastery=mastery, confidence=confidence,
+            misconception_seen=learning.misconception_seen(profile, (mistake or {}).get('misconception_id')),
         )
     return plan
 
@@ -217,28 +236,32 @@ def produce(plan, emit):
 
 
 def finish_turn(plan, state, decision, observation, text):
-    with connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
-        cursor.execute('select * from math_mate.tutor_sessions where id = %s for update', (plan.session['id'],))
-        session = cursor.fetchone()
-        streak = 0 if decision.streak == 'reset' else session['no_progress_streak'] + (decision.streak == 'increase')
-        cursor.execute('''update math_mate.tutor_sessions set level = %s, max_assistance = greatest(max_assistance, %s),
-            no_progress_streak = %s, turn_count = turn_count + 1, mistake_index = mistake_index + %s,
-            solution_shown = solution_shown or %s, policy_version = %s, updated_at = now() where id = %s''',
-            (decision.level, decision.assistance, streak, int(decision.next_mistake),
-             decision.move == 'full_solution', policy.POLICY_VERSION, session['id']))
-        cursor.execute('''update math_mate.tutor_turns set status = 'completed', observation = %s, decision_state = %s,
-            teaching_move = %s, assistance = %s, reason = %s, tutor_message = %s, error_code = null,
-            policy_version = %s, prompt_version = %s, completed_at = now(), updated_at = now()
-            where id = %s returning *''',
-            (Jsonb(observation.model_dump()) if observation else None, Jsonb(state.snapshot()), decision.move,
-             decision.assistance, decision.reason, text[:2000] or composer.fallback_text(decision, plan.context, plan.mistake),
-             policy.POLICY_VERSION, prompt('composer').version if composer.needs_model(decision.move) else None,
-             plan.turn['id']))
+    # One statement updates the session and saves the reply atomically.
+    with connect(autocommit=True) as connection, connection.cursor(row_factory=dict_row) as cursor:
+        cursor.execute('''with session as (update math_mate.tutor_sessions set level = %(level)s,
+                max_assistance = greatest(max_assistance, %(assistance)s),
+                no_progress_streak = case when %(reset)s then 0 else no_progress_streak + %(increase)s end,
+                turn_count = turn_count + 1, mistake_index = mistake_index + %(next)s,
+                solution_shown = solution_shown or %(solution)s, policy_version = %(policy)s, updated_at = now()
+                where id = %(session)s)
+            update math_mate.tutor_turns set status = 'completed', observation = %(observation)s,
+                decision_state = %(state)s, teaching_move = %(move)s, assistance = %(assistance)s, reason = %(reason)s,
+                tutor_message = %(text)s, error_code = null, policy_version = %(policy)s, prompt_version = %(prompt)s,
+                completed_at = now(), updated_at = now()
+            where id = %(turn)s returning *''', {
+                'level': decision.level, 'assistance': decision.assistance, 'reset': decision.streak == 'reset',
+                'increase': int(decision.streak == 'increase'), 'next': int(decision.next_mistake),
+                'solution': decision.move == 'full_solution', 'policy': policy.POLICY_VERSION,
+                'session': plan.session['id'], 'turn': plan.turn['id'],
+                'observation': Jsonb(observation.model_dump()) if observation else None,
+                'state': Jsonb(state.snapshot()), 'move': decision.move, 'reason': decision.reason,
+                'text': text[:2000] or composer.fallback_text(decision, plan.context, plan.mistake),
+                'prompt': prompt('composer').version if composer.needs_model(decision.move) else None})
         return serialize_turn(cursor.fetchone(), plan.part_id)
 
 
 def fail_turn(plan, code):
-    with connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
+    with connect(autocommit=True) as connection, connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute('''update math_mate.tutor_turns set status = 'failed', error_code = %s, tutor_message = null,
             teaching_move = null, updated_at = now() where id = %s returning *''', (code, plan.turn['id']))
         return serialize_turn(cursor.fetchone(), plan.part_id)
@@ -272,7 +295,7 @@ def complete_turn(plan):
 
 
 def list_turns(owner, topic_number):
-    with connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
+    with connect(autocommit=True) as connection, connection.cursor(row_factory=dict_row) as cursor:
         sweep_stale_turns(cursor)
         cursor.execute('''select t.*, s.question_part_id from math_mate.tutor_turns t
             join math_mate.tutor_sessions s on s.id = t.session_id

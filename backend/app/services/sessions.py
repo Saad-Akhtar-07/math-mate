@@ -8,9 +8,10 @@ from ..db.connection import connect
 
 def create_session():
     token = secrets.token_urlsafe(32)
-    with connect() as connection:
-        learner_id = connection.execute('insert into math_mate.learners default values returning id').fetchone()[0]
-        session = connection.execute('''insert into math_mate.learner_sessions(learner_id, token_hash)
-            values (%s, %s) returning expires_at''',
-            (learner_id, hashlib.sha256(token.encode()).hexdigest())).fetchone()
-    return {'access_token': token, 'token_type': 'bearer', 'expires_at': session[0]}
+    with connect(autocommit=True) as connection:
+        # One statement creates both rows atomically.
+        expires_at = connection.execute('''with learner as (insert into math_mate.learners default values returning id)
+            insert into math_mate.learner_sessions(learner_id, token_hash)
+            select id, %s from learner returning expires_at''',
+            (hashlib.sha256(token.encode()).hexdigest(),)).fetchone()[0]
+    return {'access_token': token, 'token_type': 'bearer', 'expires_at': expires_at}
