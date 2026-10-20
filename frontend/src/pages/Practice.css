@@ -1,0 +1,41 @@
+/* Practice: topic picker and subtopics with progress. */
+.pr-topics-wrap { display: flex; flex-direction: column; gap: 10px; }
+/* Positioned so screen-reader-only text inside the scroller cannot widen the page on phones. */
+.pr-topics { position: relative; display: flex; flex-wrap: wrap; gap: 8px; }
+.pr-topic { min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); display: inline-flex; align-items: center; gap: 8px; background: var(--surface); color: var(--ink); font-size: 15px; font-weight: 700; }
+.pr-topic > span:first-child { color: var(--ink-3); }
+.pr-topic:hover { border-color: var(--line-strong); }
+.pr-topic.is-current { border-color: transparent; background: var(--ink); color: var(--bg); }
+.pr-topic.is-current > span:first-child { color: inherit; opacity: .7; }
+.pr-topic.is-soon { border-style: dashed; border-color: var(--line-strong); background: transparent; color: var(--ink-3); font-weight: 500; }
+
+.pr-topic-card { border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); overflow: hidden; }
+.pr-topic-card-head { padding: 22px 26px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; border-bottom: 1px solid var(--line); }
+.pr-topic-card-head h2 { margin: 0 0 4px; font-size: 23px; font-weight: 700; letter-spacing: -.01em; }
+.pr-legend { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: 13px; }
+.pr-legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--brand); }
+
+.pr-subtopics { margin: 0; padding: 0; list-style: none; }
+.pr-subtopics li + li { border-top: 1px solid var(--line); }
+.pr-subtopics li.is-focus { background: var(--part-soft); }
+.pr-subtopic { min-height: 68px; padding: 14px 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; color: var(--ink); }
+.pr-subtopic:hover { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+.pr-code { flex: 0 0 44px; color: var(--ink-3); font-size: 15px; font-weight: 700; }
+.pr-subtopic-main { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pr-subtopic-main > span:last-child { color: var(--ink-3); font-size: 14px; }
+.pr-subtopic-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pr-subtopic-title strong { font-size: 17px; }
+.pr-subtopic-progress { flex: 0 1 280px; display: flex; align-items: center; gap: 12px; }
+.pr-subtopics li.is-focus .db-bar { background: var(--surface); }
+.pr-subtopic-score { min-width: 110px; color: var(--ink-2); font-size: 14px; }
+.pr-chevron { flex: none; color: var(--ink-3); }
+
+@media (max-width: 720px) {
+  .pr-topics { flex-wrap: nowrap; margin: 0 -16px; padding: 0 16px 4px; overflow-x: auto; scrollbar-width: none; }
+  .pr-topic { flex: none; }
+  .pr-topic-card-head { padding: 18px 16px; }
+  .pr-subtopic { padding: 14px 16px; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 8px 12px; }
+  .pr-code { grid-row: 1 / span 2; align-self: start; padding-top: 2px; }
+  .pr-subtopic-progress { grid-column: 2; }
+  .pr-chevron { display: none; }
+}

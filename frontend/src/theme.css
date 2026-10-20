@@ -1,0 +1,122 @@
+/*
+ * Math Mate design tokens: one source of colour, type and shape for light and dark.
+ * The theme comes from <html data-theme>, set before first paint by index.html
+ * (the saved choice, otherwise the device setting) and changed by ThemeToggle.
+ * Use the role names below in new code. The aliases at the end keep older
+ * stylesheets on the same palette until their screens are rebuilt.
+ */
+:root {
+  /* Surfaces */
+  --bg: #f6f5f0;
+  --surface: #ffffff;
+  --surface-2: #f0efe8;
+  --surface-3: #e7e5dc;
+  --line: #e2e0d6;
+  --line-subtle: #ebe9e1;
+  --line-strong: #cdcabe;
+
+  /* Text */
+  --ink: #1a1c29;
+  --ink-2: #4f5364;
+  --ink-3: #626677;
+
+  /* Actions and selection */
+  --brand: #3446d6;
+  --brand-hover: #2a39b8;
+  --on-brand: #ffffff;
+  --brand-soft: #e9ebfb;
+  --brand-on-soft: #2433a8;
+
+  /* Marks: full, partial, try again. Always paired with text or an icon, never colour alone. */
+  --good: #18704a;
+  --good-soft: #e2f2e9;
+  --part: #8f5400;
+  --part-fill: #e39b2e;
+  --part-soft: #fbefd9;
+  --bad: #b3392a;
+  --bad-soft: #fbe7e2;
+
+  /* Question diagrams and graphs */
+  --diagram-ink: #1a1c29;
+  --diagram-muted: #7d8191;
+  --diagram-grid: #dcdad0;
+  --diagram-paper: #ffffff;
+
+  --shadow: 0 1px 2px rgba(26, 28, 41, .05), 0 10px 30px rgba(26, 28, 41, .06);
+  --overlay-shadow: rgba(26, 28, 41, .12);
+
+  /* Type */
+  --font-text: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* Shape */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1016;
+  --surface: #171922;
+  --surface-2: #1f222d;
+  --surface-3: #282c39;
+  --line: #2a2e3b;
+  --line-subtle: #23262f;
+  --line-strong: #3b4052;
+
+  --ink: #ecedf3;
+  --ink-2: #b4b8c6;
+  --ink-3: #9095a6;
+
+  --brand: #8e9cff;
+  --brand-hover: #a6b1ff;
+  --on-brand: #0f1016;
+  --brand-soft: #232849;
+  --brand-on-soft: #c7cdff;
+
+  --good: #5fd49f;
+  --good-soft: #12291f;
+  --part: #f3b85e;
+  --part-fill: #e39b2e;
+  --part-soft: #2e2414;
+  --bad: #f48e7d;
+  --bad-soft: #341a19;
+
+  --diagram-ink: #ecedf3;
+  --diagram-muted: #9095a6;
+  --diagram-grid: #2e3240;
+  --diagram-paper: #171922;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25);
+  --overlay-shadow: rgba(0, 0, 0, .42);
+
+  color-scheme: dark;
+}
+
+h1, h2, .brand-name { font-family: var(--font-display); }
+
+/* Older variable names, mapped onto the roles above. */
+:root {
+  --background: var(--bg);
+  --surface-subtle: var(--surface-2);
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-tertiary: var(--ink-3);
+  --border: var(--line);
+  --border-subtle: var(--line-subtle);
+  --primary: var(--ink);
+  --primary-hover: var(--ink);
+  --accent: var(--brand);
+  --accent-soft: var(--brand-soft);
+  --danger: var(--bad);
+  --update-accent: var(--part-fill);
+  --update-soft: var(--part-soft);
+  --update-border: var(--part-fill);
+  --update-text: var(--part);
+  --update-muted: var(--part);
+  --update-code: var(--surface-2);
+}

@@ -1,0 +1,48 @@
+/* Shared layout for Home, Practice and Progress. Colours come from theme.css. */
+.db-page { background: var(--bg); color: var(--ink); }
+.db-page:focus { outline: none; }
+.db-inner { max-width: 1200px; margin: 0 auto; padding: 44px 32px 72px; display: flex; flex-direction: column; gap: 32px; }
+
+.db-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px; }
+.db-head-text { flex: 1 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.db-overline { margin: 0; color: var(--ink-3); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.db-head h1 { margin: 0; font-size: clamp(32px, 4vw, 42px); font-weight: 700; line-height: 1.08; letter-spacing: -.015em; }
+.db-head p:not(.db-overline) { margin: 0; max-width: 640px; color: var(--ink-2); font-size: 17px; line-height: 1.5; }
+
+.db-card { padding: 24px 26px; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); }
+.db-card h2, .db-section-title { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+.db-muted { margin: 0; color: var(--ink-3); font-size: 14px; }
+.db-section { display: flex; flex-direction: column; gap: 16px; }
+.db-section-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.db-section-head p { margin: 4px 0 0; color: var(--ink-2); font-size: 15px; }
+
+.db-button { min-height: 48px; padding: 0 20px; border: 0; border-radius: var(--radius-md); display: inline-flex; align-items: center; justify-content: center; gap: 10px; background: var(--brand); color: var(--on-brand); font-size: 16px; font-weight: 700; cursor: pointer; }
+.db-button:hover { background: var(--brand-hover); }
+.db-button.is-quiet { min-height: 44px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 15px; }
+.db-button.is-quiet:hover { border-color: var(--ink-3); background: var(--surface); }
+.db-link { color: var(--brand); font-size: 15px; font-weight: 700; }
+.db-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.db-bar { height: 8px; flex: 1 1 auto; border-radius: var(--radius-pill); background: var(--surface-2); overflow: hidden; }
+.db-bar > span { display: block; height: 100%; border-radius: var(--radius-pill); background: var(--brand); }
+.db-chip { align-self: flex-start; padding: 5px 11px; border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.db-chip.is-good { background: var(--good-soft); color: var(--good); }
+.db-chip.is-part { background: var(--part-soft); color: var(--part); }
+.db-chip.is-bad { background: var(--bad-soft); color: var(--bad); }
+.db-chip.is-brand { background: var(--brand-soft); color: var(--brand-on-soft); }
+.db-chip.is-neutral { background: var(--surface-2); color: var(--ink-2); }
+.db-chip.is-outline { border: 1px solid var(--line); background: transparent; color: var(--ink-2); font-weight: 500; }
+.db-focus { padding: 3px 9px; border: 1px solid var(--part-fill); border-radius: var(--radius-pill); background: var(--surface); color: var(--part); font-size: 12px; font-weight: 700; white-space: nowrap; }
+
+.db-skeleton { border-radius: var(--radius-xl); background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size: 200% 100%; animation: db-shimmer 1.4s ease-in-out infinite; }
+@keyframes db-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.db-empty { padding: 36px 24px; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.db-empty h2 { margin: 0; font-size: 22px; }
+.db-empty p { margin: 0; max-width: 460px; color: var(--ink-2); line-height: 1.5; }
+.db-note { margin: 0; padding: 12px 14px; border-radius: var(--radius-md); background: var(--part-soft); color: var(--ink); font-size: 14px; }
+
+@media (max-width: 720px) {
+  .db-inner { padding: 24px 16px 40px; gap: 24px; }
+  .db-head .db-button { width: 100%; }
+  .db-card { padding: 20px; }
+}

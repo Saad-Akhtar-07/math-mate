@@ -13,14 +13,21 @@ export default function ThemeToggle() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     document.documentElement.style.colorScheme = theme
-    try { localStorage.setItem('syllabus-theme', theme) } catch { /* Theme still works for this session. */ }
+    // Matches --bg in theme.css so the browser bar blends with the page.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0f1016' : '#f6f5f0')
   }, [theme])
+
+  // Saved only on an explicit choice; until then index.html follows the device setting.
+  const chooseTheme = () => {
+    setTheme(nextTheme)
+    try { localStorage.setItem('syllabus-theme', nextTheme) } catch { /* Theme still works for this session. */ }
+  }
 
   return (
     <button
       className="theme-toggle"
       type="button"
-      onClick={() => setTheme(nextTheme)}
+      onClick={chooseTheme}
       aria-label={`Switch to ${nextTheme} mode`}
       title={`Switch to ${nextTheme} mode`}
     >

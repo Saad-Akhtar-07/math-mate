@@ -638,6 +638,8 @@ Thin evidence is labelled as such ("not enough practice yet").
 
 ## 9. Frontend integration (Ayesha)
 
+> The API integration below still holds. The workspace layout it mentions (tutor panel, Hint and Explain buttons) was replaced by the October 2026 redesign: see [frontend.md](frontend.md).
+
 | File | Change |
 | --- | --- |
 | [`api/submissions.js`](../frontend/src/api/submissions.js) | `getTutorReviews` → `GET /me/assessments`; `requestTutorReview(partId, revision)` → `POST /me/responses/{id}/assessments` (it now submits too); `getTutorChatTurns` → `GET /me/tutor-turns`; `sendTutorChatMessage(partId, message, clientMessageId, intent)` → `POST /me/question-parts/{id}/tutor-turns`. All use `guestRequest` (bearer token), replacing the old `/learner-sessions/{uuid}/…` paths. |

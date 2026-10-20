@@ -1,30 +1,43 @@
 import { lazy, Suspense } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { matchPath, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import AppHeader from './components/AppHeader.jsx'
+import { useAvailableTopics } from './hooks/useQuestionContent.js'
 
-const SyllabusOverview = lazy(() => import('./pages/SyllabusOverview.jsx'))
-const TopicPage = lazy(() => import('./pages/TopicPage.jsx'))
+const HomePage = lazy(() => import('./pages/HomePage.jsx'))
+const PracticePage = lazy(() => import('./pages/PracticePage.jsx'))
+const ProgressPage = lazy(() => import('./pages/ProgressPage.jsx'))
 const SubtopicPage = lazy(() => import('./pages/SubtopicPage.jsx'))
 const QuestionPracticePage = lazy(() => import('./pages/QuestionPracticePage.jsx'))
 const NotFound = lazy(() => import('./pages/NotFound.jsx'))
 
 function RouteLoadingState() {
   return (
-    <main className="reader-main" id="main-content" tabIndex="-1">
+    <main className="route-loading" id="main-content" tabIndex="-1">
       <p role="status">Loading page…</p>
     </main>
   )
 }
 
+// /practice opens the first topic that has questions.
+function PracticeRedirect() {
+  const { firstTopic, loading } = useAvailableTopics()
+  if (loading) return <RouteLoadingState />
+  return <Navigate to={`/topic/${firstTopic?.number || '1'}`} replace />
+}
+
 export default function App() {
+  // The practice workspace has its own slim header so the question and tutor get the full height.
+  const inWorkspace = Boolean(matchPath('/topic/:topicNumber/practice', useLocation().pathname))
   return (
-    <div className="app-shell">
+    <div className={`app-shell${inWorkspace ? '' : ' has-tab-bar'}`}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
-      <AppHeader />
+      {!inWorkspace && <AppHeader />}
       <Suspense fallback={<RouteLoadingState />}>
         <Routes>
-          <Route path="/" element={<SyllabusOverview />} />
-          <Route path="/topic/:topicNumber" element={<TopicPage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/practice" element={<PracticeRedirect />} />
+          <Route path="/progress" element={<ProgressPage />} />
+          <Route path="/topic/:topicNumber" element={<PracticePage />} />
           <Route path="/topic/:topicNumber/practice" element={<QuestionPracticePage />} />
           <Route path="/topic/:topicNumber/:subtopicNumber" element={<SubtopicPage />} />
           <Route path="*" element={<NotFound />} />

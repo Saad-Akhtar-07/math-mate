@@ -106,20 +106,28 @@ export function saveStudentResponse(questionPartId, typedWork, expectedRevision 
   )
 }
 
+// The unexpired guest access token saved in this browser, if any.
+function storedGuestToken() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || 'null')
+    if (stored?.access_token && Date.parse(stored.expires_at) > Date.now()) return stored.access_token
+  } catch { /* Treated as no guest workspace. */ }
+  return null
+}
+
+// True when this browser already has a guest workspace. Pages that only show progress
+// check this first, so browsing never creates a guest learner.
+export function hasGuestSession() {
+  return Boolean(storedGuestToken())
+}
+
 async function guestToken() {
-  const readToken = () => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || 'null')
-      if (stored?.access_token && Date.parse(stored.expires_at) > Date.now()) return stored.access_token
-    } catch { /* Create a fresh guest below. */ }
-    return null
-  }
-  const existing = readToken()
+  const existing = storedGuestToken()
   if (existing) return existing
   if (!guestPromise) {
     const create = async () => {
       // Another tab may have established this browser's identity while waiting.
-      const established = readToken()
+      const established = storedGuestToken()
       if (established) return established
       const session = await apiRequest('/learner-sessions', { method: 'POST' })
       // Persist before accepting work: otherwise a refresh would lose access.

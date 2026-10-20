@@ -3,15 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0b0d0f" />
+    <meta name="theme-color" content="#f6f5f0" />
     <meta name="description" content="Math Mate: Cambridge O Level Mathematics 4024 past-paper questions arranged by topic, subtopic and paper type." />
     <script>
+      // Apply the theme before first paint: the saved choice, otherwise the device setting.
+      // Keep the colours in sync with --bg in src/theme.css.
       (() => {
         let savedTheme = null
         try { savedTheme = localStorage.getItem('syllabus-theme') } catch {}
-        const theme = savedTheme === 'light' ? 'light' : 'dark'
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        const theme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : (prefersDark ? 'dark' : 'light')
         document.documentElement.dataset.theme = theme
         document.documentElement.style.colorScheme = theme
+        document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0f1016' : '#f6f5f0'
       })()
     </script>
     <title>Math Mate | O Level Mathematics practice</title>

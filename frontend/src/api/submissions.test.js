@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { getTutorReviews, requestTutorReview, sendTutorChatMessage } from './submissions.js'
+import { getTutorReviews, hasGuestSession, requestTutorReview, sendTutorChatMessage } from './submissions.js'
 
 const originalFetch = globalThis.fetch
 const clientId = '22345678-1234-4234-8234-123456789abc'
@@ -121,4 +121,19 @@ test('a rejected guest token is replaced by a new guest session once', async () 
   assert.deepEqual(await getTutorReviews('2'), [])
   assert.deepEqual(requests.map((request) => request.auth ?? 'none'), ['Bearer guest-token', 'none', 'Bearer new-token'])
   assert.equal(JSON.parse(store.get('math-mate-guest-session-v1')).access_token, 'new-token')
+})
+
+test('hasGuestSession reads the saved guest workspace without contacting the server', () => {
+  let calls = 0
+  globalThis.fetch = async () => { calls++; throw new Error('No request expected') }
+  const storageWith = (value) => ({ getItem: (key) => (key === 'math-mate-guest-session-v1' ? value : null), setItem: () => {}, removeItem: () => {} })
+  globalThis.localStorage = storageWith(guest)
+  assert.equal(hasGuestSession(), true)
+  globalThis.localStorage = storageWith(JSON.stringify({ access_token: 'old', expires_at: '2000-01-01T00:00:00Z' }))
+  assert.equal(hasGuestSession(), false)
+  globalThis.localStorage = storageWith(null)
+  assert.equal(hasGuestSession(), false)
+  globalThis.localStorage = storageWith('not json')
+  assert.equal(hasGuestSession(), false)
+  assert.equal(calls, 0)
 })
