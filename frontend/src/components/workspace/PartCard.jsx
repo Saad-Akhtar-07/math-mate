@@ -1,4 +1,4 @@
-import { ArrowRight, Camera, Check, ChevronDown, Eye, ImageUp, LoaderCircle, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowRight, Camera, Check, ChevronDown, Eye, ImageUp, ListChecks, LoaderCircle, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { getQuestionPartSolution } from '../../api/content.js'
 import { getResponseSubmissions } from '../../api/submissions.js'
@@ -9,6 +9,7 @@ import MathText from '../question-renderer/MathText.jsx'
 import SolutionImage from '../SolutionImage.jsx'
 import SolutionUploadQueue from '../SolutionUploadQueue.jsx'
 import TutorText from '../TutorText.jsx'
+import MarkedWorking from './MarkedWorking.jsx'
 import QuestionBlock from './QuestionBlock.jsx'
 
 const MAX_PAGES = 4
@@ -142,8 +143,9 @@ function SlowNotice() {
 }
 
 // The outcome of the latest check, shown beside the working. Feedback itself is in the tutor column.
+// With marks lost, how the work was marked opens by default: it shows which lines lost them.
 function ResultStrip({ review, checking, error, assisted, onNext, nextLabel }) {
-  const [showReading, setShowReading] = useState(false)
+  const [showMarking, setShowMarking] = useState(null)
   if (checking) {
     return <div className="ws-result is-brand" role="status">
       <LoaderCircle className="spin" size={20} aria-hidden="true" />
@@ -167,6 +169,8 @@ function ResultStrip({ review, checking, error, assisted, onNext, nextLabel }) {
   }
   const full = isFullMarks(review)
   const tone = full ? 'good' : review.marks_awarded > 0 ? 'part' : 'bad'
+  const open = showMarking ?? Boolean(review.review && !full)
+  const panelId = `${review.question_part_id}-marking`
   return <div className={`ws-result is-${tone}`}>
     <span className="ws-result-icon" aria-hidden="true">{full ? <Check size={18} strokeWidth={2.6} /> : <RotateCcw size={18} />}</span>
     <div>
@@ -174,10 +178,12 @@ function ResultStrip({ review, checking, error, assisted, onNext, nextLabel }) {
       <span>Attempt {review.attempt_number} · {assisted ? 'With help' : 'Done without help'}{full ? '' : ' · Your tutor has feedback'}</span>
     </div>
     <div className="ws-result-actions">
-      {review.what_i_read && <button type="button" className="ws-small-button" aria-expanded={showReading} onClick={() => setShowReading((open) => !open)}><Eye size={15} aria-hidden="true" />What I read</button>}
+      {review.what_i_read && <button type="button" className="ws-small-button" aria-expanded={open} aria-controls={panelId} onClick={() => setShowMarking(!open)}>
+        {review.review ? <><ListChecks size={15} aria-hidden="true" />How it was marked</> : <><Eye size={15} aria-hidden="true" />What I read</>}
+      </button>}
       {full && onNext && <button type="button" className="ws-small-button is-primary" onClick={onNext}>{nextLabel}<ArrowRight size={15} aria-hidden="true" /></button>}
     </div>
-    {showReading && <div className="ws-reading"><TutorText text={review.what_i_read} /></div>}
+    {open && review.what_i_read && <MarkedWorking id={panelId} whatIRead={review.what_i_read} review={review.review} fullMarks={full} />}
   </div>
 }
 
@@ -310,7 +316,7 @@ export default function PartCard({
     <SavedPages attachments={attachments} ready={ready} onRemove={onRemoveAttachment} />
 
     {mode === 'submit' && aiMarkable === false && <p className="ws-note">AI checking is not available for graph or diagram answers yet. Submit your work, then compare it with the mark scheme.</p>}
-    {mode === 'check' && <ResultStrip review={review} checking={checking} error={checkError} assisted={assisted} onNext={onNext} nextLabel={nextLabel} />}
+    {mode === 'check' && <ResultStrip key={review?.id || 'none'} review={review}checking={checking} error={checkError} assisted={assisted} onNext={onNext} nextLabel={nextLabel} />}
 
     <div className="ws-part-foot">
       <div className="ws-part-links">

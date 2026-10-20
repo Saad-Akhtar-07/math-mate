@@ -19,6 +19,7 @@ from .schemas import MarkerOutput
 
 UNREADABLE = 'I could not read your work clearly. Please retake the photo in good light, or type your working.'
 OFF_TOPIC = 'This work does not seem to answer this question part. Check that you attached the right page.'
+HIDDEN_STEP = 'A step in your working'
 
 
 def build_messages(context, typed_work, images):
@@ -87,3 +88,28 @@ def student_feedback(context, mark_result):
         return 'Well done: your working earns full marks.'
     step = output.mistakes[0].student_step if output.mistakes else 'your working'
     return f'You scored {mark_result.marks_awarded}/{mark_result.marks_maximum}. Look again at: {step}'[:600]
+
+
+def student_review(context, mark_result):
+    """Where marks were earned and lost, safe to show beside the working.
+
+    Mark codes only, never the mark-scheme text. Mistakes keep the quoted step and
+    its type but not the description, which may state the corrected step: the tutor
+    gives that help one level at a time.
+    """
+    output = mark_result.output
+    tokens = without_student_text(context.final_answer_tokens, output.what_i_read)
+    awarded = set(mark_result.awarded_point_ids)
+    lost = {point_id for mistake in output.mistakes for point_id in mistake.points_lost}
+    # P0 is the whole answer; the marks total already reports it.
+    scored = [point for point in context.marking_points[1:] if point.value]
+    return {
+        'points': [{'code': point.code, 'value': point.value, 'awarded': point.id in awarded}
+                   for point in scored if point.id in awarded or point.id in lost],
+        'mistakes': [{
+            'step': HIDDEN_STEP if leaks(mistake.student_step, tokens) else mistake.student_step,
+            'type': mistake.type,
+            'marks_lost': [point.code for point in scored
+                           if point.id in mistake.points_lost and point.id not in awarded],
+        } for mistake in output.mistakes],
+    }

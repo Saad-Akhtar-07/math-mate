@@ -89,6 +89,28 @@ test('Check my work submits once, shows marks by the working and feedback in the
   expect(reading.getAttribute('aria-expanded')).toBe('true')
 })
 
+test('lost marks open how the work was marked, with the wrong line and its marks', async () => {
+  getTutorReviews.mockResolvedValue([marked({
+    what_i_read: 'x + 2 = 7\nx = 9',
+    review: { points: [{ code: 'M1', value: 1, awarded: true }, { code: 'A1', value: 1, awarded: false }],
+      mistakes: [{ step: 'x = 9', type: 'calculation', marks_lost: ['A1'] }] },
+  })])
+  getStudentResponses.mockResolvedValue([{ question_part_id: 'q1-a', typed_work: 'x + 2 = 7\nx = 9', revision: 1, attachments: [], submitted: true }])
+  workspace([question([{ id: 'q1-a', label: '(a)', marks: 2, prompt: [paragraph('Solve x + 2 = 7.')] }])])
+
+  const toggle = await screen.findByRole('button', { name: 'How it was marked' })
+  expect(toggle.getAttribute('aria-expanded')).toBe('true')
+  const marks = screen.getByRole('list', { name: 'Marks earned and lost' })
+  expect(within(marks).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['EarnedM1', 'LostA1'])
+  const lines = within(screen.getByRole('list', { name: 'Your working, as it was read' })).getAllByRole('listitem')
+  expect(lines[0].textContent).toBe('x + 2 = 7')
+  expect(lines[1].textContent).toBe('Marks lost herex = 9Calculation slipLost A1')
+  expect(screen.getByText('Your tutor can help you fix each marked step, one at a time.')).toBeTruthy()
+
+  fireEvent.click(toggle)
+  expect(screen.queryByRole('list', { name: 'Your working, as it was read' })).toBeNull()
+})
+
 test('nested parts show their shared text once and only the open part has an answer box', async () => {
   const shared = paragraph('One counter is taken at random.')
   workspace([question([

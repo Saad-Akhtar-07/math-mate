@@ -49,6 +49,7 @@ def test_mark_tutor_resubmit_and_remember(client):
     marked = assessments(http, headers)[0]
     assert (marked['status'], marked['outcome'], marked['marks_awarded'], marked['marks_maximum']) == ('completed', 'marked', 0, 3)
     assert marked['what_i_read'] == WRONG and '62' not in marked['feedback']
+    assert marked['review'] == {'points': [], 'mistakes': [{'step': 'p = 302', 'type': 'method', 'marks_lost': []}]}
     assert assess(http, headers, 1).json()['id'] == first.json()['id']
 
     hint = turn(http, headers, 'Please give me one small hint.', 'hint')

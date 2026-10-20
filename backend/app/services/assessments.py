@@ -42,6 +42,8 @@ def serialize(row, part_id, attempt_number):
         'status': 'completed' if status == 'unreadable' else status, 'outcome': outcome,
         'marks_awarded': row['marks_awarded'], 'marks_maximum': row['marks_maximum'], 'feedback': row['feedback'],
         'what_i_read': result.get('what_i_read') if outcome == 'marked' else None,
+        # Attempts marked before the review existed have none; the page shows only what was read.
+        'review': result.get('review') if outcome == 'marked' else None,
         'error_message': user_message(row['error_code']) if status == 'failed' else None,
         'can_retry': status == 'failed' and row['run_count'] < 2, 'created_at': row['created_at'],
     }
@@ -158,6 +160,8 @@ def complete(cursor, work, context, mark_result):
     session = cursor.fetchone()
     result = {**mark_result.output.model_dump(), 'awarded_point_ids': list(mark_result.awarded_point_ids),
               'points': [{'id': point.id, 'code': point.code, 'value': point.value} for point in context.marking_points]}
+    if mark_result.marked:
+        result['review'] = marker.student_review(context, mark_result)
     # A job swept as interrupted may still finish; its valid result replaces the interruption.
     cursor.execute('''update math_mate.assessments set status = %s, marks_awarded = %s, result = %s, feedback = %s,
             error_code = null, prompt_version = %s, model = %s, completed_at = now(), updated_at = now()
