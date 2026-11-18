@@ -38,10 +38,10 @@ def build_messages(context, mistake, recent_turns, message):
     return [{'role': 'system', 'content': prompt('observer').text}, {'role': 'user', 'content': user}]
 
 
-def observe(context, mistake, recent_turns, message, learner_id=None, source_id=None):
+def observe(context, mistake, recent_turns, message, user_id=None, source_id=None):
     request = LLMRequest('observer', build_messages(context, mistake, recent_turns, message),
                          ai_settings().observer_max_tokens, prompt('observer').version,
-                         learner_id=learner_id, source_id=source_id)
+                         user_id=user_id, source_id=source_id)
     try:
         observation = Observation.model_validate_json(gateway.call(request).content)
     except (InvalidOutput, ValidationError):

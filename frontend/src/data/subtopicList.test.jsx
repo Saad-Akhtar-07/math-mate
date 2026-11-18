@@ -4,12 +4,12 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { getQuestionBank } from '../api/content.js'
-import { getStudentResponses, getTutorReviews, hasGuestSession } from '../api/submissions.js'
+import { getStudentResponses, getTutorReviews } from '../api/submissions.js'
 import SubtopicPage from '../pages/SubtopicPage.jsx'
 
 vi.mock('../api/content.js', () => ({ getQuestionBank: vi.fn(), getQuestionPartSolution: vi.fn() }))
 vi.mock('../api/submissions.js', async (original) => ({
-  ...await original(), getStudentResponses: vi.fn(), getTutorReviews: vi.fn(), hasGuestSession: vi.fn(),
+  ...await original(), getStudentResponses: vi.fn(), getTutorReviews: vi.fn(),
 }))
 
 const paper = (calculatorAllowed) => ({ year: 2024, session: 'May/June', component: calculatorAllowed ? '22' : '12', calculatorAllowed })
@@ -39,7 +39,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
   getQuestionBank.mockResolvedValue({ questions })
-  hasGuestSession.mockReturnValue(true)
   getStudentResponses.mockResolvedValue([{ question_part_id: 'q-draft-a', typed_work: '3x + 5', revision: 1, attachments: [], submitted: false }])
   getTutorReviews.mockResolvedValue([review('q-done-a', 2), review('q-retry-a', 1)])
 })
@@ -84,16 +83,17 @@ test('difficulty filtering carries into the workspace so Next follows the same l
     .toBe('/topic/2/practice?subtopic=2.5&difficulty=medium&question=q-retry')
 })
 
-test('a visitor without a guest workspace browses without any learner requests', async () => {
-  hasGuestSession.mockReturnValue(false)
+test('a new account sees questions with empty progress', async () => {
+  getStudentResponses.mockResolvedValue([])
+  getTutorReviews.mockResolvedValue([])
   renderList()
   const list = await screen.findByRole('region', { name: 'Questions' })
   expect(within(list).getAllByRole('link')).toHaveLength(4)
   expect(within(list).queryByText('2 of 2 marks')).toBeNull()
   expect(screen.getByText('4 questions')).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Start next question' })).toBeTruthy()
-  expect(getStudentResponses).not.toHaveBeenCalled()
-  expect(getTutorReviews).not.toHaveBeenCalled()
+  expect(getStudentResponses).toHaveBeenCalled()
+  expect(getTutorReviews).toHaveBeenCalled()
 })
 
 test('a progress failure keeps every question available', async () => {

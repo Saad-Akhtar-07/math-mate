@@ -1,4 +1,4 @@
-"""Database integration checks. All test learner records are rolled back.
+"""Database integration checks. All test user records are rolled back.
 
 The rollback-only `client` fixture lives in conftest.py and skips unless MATH_MATE_TEST_DB=1.
 """
@@ -6,12 +6,12 @@ The rollback-only `client` fixture lives in conftest.py and skips unless MATH_MA
 import pytest
 
 from backend.app.services import uploads, storage_cleanup as cleanup_storage
-from helpers import guest, part, save
+from helpers import part, save, user
 
 
-def test_guest_isolation_and_tokens_not_stored(client):
+def test_user_isolation_and_auth_required(client):
     http, connection = client
-    first, second = guest(http), guest(http)
+    first, second = user(http), user(http)
     part_id = part(connection)
     saved = save(http, first, part_id, '2x = 10; x = 5')
     assert saved.status_code == 200
@@ -25,15 +25,13 @@ def test_guest_isolation_and_tokens_not_stored(client):
     assert http.post(f'/api/v1/me/responses/{part_id}/submissions', headers=second,
                      json={'expected_revision': 1}).status_code == 404
     assert http.get(f'/api/v1/me/responses/{part_id}/submissions', headers=second).json()['submissions'] == []
-    hashes = connection.execute('select token_hash from math_mate.learner_sessions').fetchall()
-    assert all(len(row[0]) == 64 and row[0] != first['Authorization'][7:] for row in hashes)
     assert http.get('/api/v1/me/responses?topic_number=2').status_code == 401
     assert http.get('/api/v1/me/responses?topic_number=2', headers={'Authorization': 'Bearer invalid'}).status_code == 401
 
 
 def test_conflicts_retries_and_submission_history(client):
     http, connection = client
-    headers, part_id = guest(http), part(connection)
+    headers, part_id = user(http), part(connection)
     first = save(http, headers, part_id, 'First method').json()
     assert first['revision'] == 1
     assert save(http, headers, part_id, 'First method').json()['revision'] == 1
@@ -64,23 +62,21 @@ def test_conflicts_retries_and_submission_history(client):
     assert earlier['submissions'][0]['typed_work'] == 'First method'
 
 
-def test_validation_expiration_and_unknown_parts(client):
+def test_validation_and_unknown_parts(client):
     http, connection = client
-    headers, part_id = guest(http), part(connection)
+    headers, part_id = user(http), part(connection)
     assert save(http, headers, 'missing-part', 'x').status_code == 404
     assert save(http, headers, part_id, 'x' * 20001).status_code == 422
     assert save(http, headers, part_id, '   ').status_code == 200
     assert http.post(f'/api/v1/me/responses/{part_id}/submissions', headers=headers,
                      json={'expected_revision': 1}).status_code == 422
-    connection.execute("update math_mate.learner_sessions set created_at = now() - interval '2 days', expires_at = now() - interval '1 day'")
-    assert http.get('/api/v1/me/responses?topic_number=2', headers=headers).status_code == 401
 
 
 def test_question_projection_and_foreign_keys(client):
     from psycopg.errors import ForeignKeyViolation, RestrictViolation
     http, connection = client
     part_id = part(connection)
-    headers = guest(http)
+    headers = user(http)
     save(http, headers, part_id, 'Retain this work')
     # PostgreSQL 18 reports ON DELETE RESTRICT as restrict_violation; earlier versions as foreign_key_violation.
     with pytest.raises((ForeignKeyViolation, RestrictViolation)), connection.transaction():
@@ -96,7 +92,7 @@ def test_question_projection_and_foreign_keys(client):
 
 def test_draft_pagination(client):
     http, connection = client
-    headers = guest(http)
+    headers = user(http)
     part_ids = [row[0] for row in connection.execute('''select p.id from math_mate.question_parts p
         join math_mate.questions q on q.id = p.question_id where p.active and q.topic_code = '2'
         order by p.id limit 3''').fetchall()]
@@ -157,7 +153,7 @@ def upload(http, headers, part_id, raw, revision):
 def test_four_separate_pages_retries_and_owner_isolation(client, fake_storage):
     import hashlib
     http, connection = client
-    headers, part_id = guest(http), part(connection)
+    headers, part_id = user(http), part(connection)
     draft = save(http, headers, part_id, '').json()
     for color in ('white', 'black', 'red', 'blue'):
         result = upload(http, headers, part_id, photo(color), draft['revision'])
@@ -174,14 +170,14 @@ def test_four_separate_pages_retries_and_owner_isolation(client, fake_storage):
     assert fake_storage.writes == 4
     assert upload(http, headers, part_id, photo('green'), draft['revision']).status_code == 422
     file_id = draft['attachments'][0]['file_id']
-    other = guest(http)
+    other = user(http)
     assert http.get(f'/api/v1/me/solution-files/{file_id}/url', headers=other).status_code == 404
     assert http.get(f'/api/v1/me/solution-files/{file_id}/url', headers=headers).status_code == 200
 
 
 def test_image_only_submission_keeps_pages_after_draft_removal(client, fake_storage):
     http, connection = client
-    headers, part_id = guest(http), part(connection)
+    headers, part_id = user(http), part(connection)
     save(http, headers, part_id, '')
     draft = upload(http, headers, part_id, photo('white'), 1).json()
     submitted = http.post(f'/api/v1/me/responses/{part_id}/submissions', headers=headers,
@@ -200,7 +196,7 @@ def test_image_only_submission_keeps_pages_after_draft_removal(client, fake_stor
 
 def test_failed_upload_has_no_draft_page_and_can_retry_then_cleanup(client, fake_storage):
     http, connection = client
-    headers, part_id = guest(http), part(connection)
+    headers, part_id = user(http), part(connection)
     save(http, headers, part_id, 'My method')
     fake_storage.fail = True
     assert upload(http, headers, part_id, photo('white'), 1).status_code == 503

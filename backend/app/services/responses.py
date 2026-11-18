@@ -21,7 +21,7 @@ def get_response(part_id: str, owner: UUID):
         # Page mutations take an update lock on this row. Hold a shared lock
         # while reading both the revision and pages so retry checks agree.
         cursor.execute('''select id from math_mate.student_responses
-            where learner_id = %s and question_part_id = %s for share''', (owner, part_id))
+            where user_id = %s and question_part_id = %s for share''', (owner, part_id))
         row = cursor.fetchone()
         if not row:
             raise HTTPException(404, 'Saved answer not found')
@@ -36,7 +36,7 @@ def list_responses(owner: UUID, topic_number: str, after: str = '', limit: int =
             from math_mate.student_responses r
             join math_mate.question_parts p on p.id = r.question_part_id
             join math_mate.questions q on q.id = p.question_id
-            where r.learner_id = %s and q.topic_code = %s and r.question_part_id > %s
+            where r.user_id = %s and q.topic_code = %s and r.question_part_id > %s
             order by r.question_part_id limit %s''', (owner, topic_number, after, limit + 1))
         rows = cursor.fetchall()
         images = draft_attachments(cursor, [row['id'] for row in rows[:limit]])
@@ -51,9 +51,9 @@ def save_response(part_id: str, body: SaveDraft, owner: UUID):
         cursor.execute('''with question as (select q.id from math_mate.questions q
                 join math_mate.question_parts p on p.question_id = q.id
                 where p.id = %(part)s and p.active for share of q),
-            created as (insert into math_mate.student_responses(learner_id, question_part_id, typed_work)
+            created as (insert into math_mate.student_responses(user_id, question_part_id, typed_work)
                 select %(owner)s, %(part)s, %(text)s from question where %(revision)s = 0
-                on conflict (learner_id, question_part_id) do nothing returning id)
+                on conflict (user_id, question_part_id) do nothing returning id)
             select exists(select 1 from question) as found, exists(select 1 from created) as created''',
             {'part': part_id, 'owner': owner, 'text': body.typed_work, 'revision': body.expected_revision})
         status = cursor.fetchone()
@@ -62,7 +62,7 @@ def save_response(part_id: str, body: SaveDraft, owner: UUID):
         cursor.execute('''select r.*, exists(select 1 from math_mate.response_submissions s
                 where s.response_id = r.id and s.response_revision = r.revision) as submitted
             from math_mate.student_responses r
-            where r.learner_id = %s and r.question_part_id = %s for update of r''', (owner, part_id))
+            where r.user_id = %s and r.question_part_id = %s for update of r''', (owner, part_id))
         row = cursor.fetchone()
         # Equal content is an idempotent retry, even if the previous response was lost.
         if not row or (not status['created'] and row['typed_work'] != body.typed_work and row['revision'] != body.expected_revision):
@@ -82,7 +82,7 @@ def submit(cursor, part_id: str, expected_revision: int, owner: UUID):
     # One round trip: the question (shared lock against imports), the draft (update
     # lock), an earlier submission of this revision and whether the draft has pages.
     cursor.execute('''with draft as (select id, revision, typed_work from math_mate.student_responses
-            where learner_id = %(owner)s and question_part_id = %(part)s for update)
+            where user_id = %(owner)s and question_part_id = %(part)s for update)
         select q.*, d.id as draft_id, d.revision as draft_revision, d.typed_work as draft_typed_work,
             (select s.id from math_mate.response_submissions s
                 where s.response_id = d.id and s.response_revision = %(revision)s) as existing_id,
@@ -135,7 +135,7 @@ def list_submissions(part_id: str, owner: UUID, before: int | None = None, limit
     with connect(autocommit=True) as connection, connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute('''select s.* from math_mate.response_submissions s
             join math_mate.student_responses r on r.id = s.response_id
-            where r.learner_id = %s and r.question_part_id = %s
+            where r.user_id = %s and r.question_part_id = %s
                 and (%s::integer is null or s.response_revision < %s)
             order by s.response_revision desc limit %s''', (owner, part_id, before, before, limit + 1))
         rows = cursor.fetchall()

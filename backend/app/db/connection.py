@@ -13,7 +13,7 @@ from contextlib import contextmanager
 
 import psycopg
 from psycopg_pool import ConnectionPool
-from ..core.config import DATABASE_TARGETS, database_env_keys, database_target
+from ..core.config import database_env_keys
 
 # A connection returned this recently is almost certainly alive; a broken one
 # fails its next statement and the pool replaces it.
@@ -23,18 +23,16 @@ _pool = None
 _last_returned = weakref.WeakKeyDictionary()
 
 
-def connection_settings(target=None):
-    """Settings for the MATH_MATE_DB database, or for `target` when given."""
-    target = target or database_target()
-    keys = database_env_keys(target)
+def connection_settings():
+    """Server-only connection settings for the one Supabase PostgreSQL database."""
+    keys = database_env_keys()
     missing = [key for key in keys if not os.getenv(key)]
     if missing:
-        raise RuntimeError(f"Missing database settings for {target}: {', '.join(missing)}")
+        raise RuntimeError(f"Missing Supabase database settings: {', '.join(missing)}")
     host, port, dbname, user, password = (os.environ[key] for key in keys)
     return dict(
         host=host, port=port, dbname=dbname, user=user, password=password,
-        # Supabase always requires TLS; a local development database may run without it.
-        sslmode=os.getenv(f"{DATABASE_TARGETS[target]}_SSLMODE", "require" if target == "supabase" else "prefer"),
+        sslmode=os.getenv('SUPABASE_DB_SSLMODE', 'require'),
         connect_timeout=8,
         application_name="math-mate-backend",
     )
@@ -67,15 +65,12 @@ def stop_pool():
 
 
 @contextmanager
-def connect(autocommit=False, target=None):
-    """A pooled connection. With autocommit each statement commits on its own, saving BEGIN and COMMIT.
-
-    Command-line tools may name a `target` database; the API always uses MATH_MATE_DB.
-    """
-    if _pool and target is None:
+def connect(autocommit=False):
+    """A pooled connection. With autocommit each statement commits on its own."""
+    if _pool:
         with _pool.connection() as connection:
             connection.autocommit = autocommit
             yield connection
     else:
-        with psycopg.connect(**connection_settings(target), autocommit=autocommit) as connection:
+        with psycopg.connect(**connection_settings(), autocommit=autocommit) as connection:
             yield connection

@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .api.routes import assessments, questions, responses, sessions, tutoring, uploads
+from .api.routes import assessments, questions, responses, tutoring, uploads
 from .core.config import cors_origins
 from .db.connection import start_pool, stop_pool
 from .middleware.upload_limits import UploadBodyLimit
@@ -24,7 +24,7 @@ async def lifespan(_app):
 
 
 app = FastAPI(title='Math Mate API', lifespan=lifespan)
-for router in (questions.router, sessions.router, responses.router, uploads.router, assessments.router, tutoring.router):
+for router in (questions.router, responses.router, uploads.router, assessments.router, tutoring.router):
     app.include_router(router)
 app.add_middleware(UploadBodyLimit)
 app.add_middleware(

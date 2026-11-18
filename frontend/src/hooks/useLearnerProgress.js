@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getStudentResponses, getTutorReviews, hasGuestSession } from '../api/submissions.js'
+import { getStudentResponses, getTutorReviews } from '../api/submissions.js'
 import { readDrafts } from '../data/localDrafts.js'
 import { latestReviewsByPart, responsesByPart } from '../utils/progress.js'
 
@@ -8,7 +8,7 @@ const EMPTY = { responses: new Map(), reviews: new Map(), responseList: [], revi
 
 /**
  * Saved work and latest marks for a topic, for showing progress in lists.
- * Reads only: without an existing guest workspace it reports no progress rather than creating one.
+ * Reads the signed-in user's saved work and marking history.
  * Questions served from bundled data (local-only mode) use the drafts saved on this device.
  */
 export default function useLearnerProgress(topicNumber, questions, questionsLoading) {
@@ -26,10 +26,6 @@ export default function useLearnerProgress(topicNumber, questions, questionsLoad
     if (localOnly) {
       const drafts = Object.entries(readDrafts(topicNumber)).map(([id, typedWork]) => ({ question_part_id: id, typed_work: typedWork }))
       setState({ key, ...EMPTY, responses: responsesByPart(drafts), responseList: drafts, loading: false, error: '' })
-      return undefined
-    }
-    if (!hasGuestSession()) {
-      setState({ key, ...EMPTY, loading: false, error: '' })
       return undefined
     }
     let active = true

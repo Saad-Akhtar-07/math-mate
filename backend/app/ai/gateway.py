@@ -25,7 +25,7 @@ class DatabaseLedger:
         with connect(autocommit=True) as connection:
             call_id, blocked = connection.execute(
                 'select call_id, blocked from math_mate.reserve_llm_call(%s, %s, %s, %s, %s, %s, %s, %s, %s)',
-                (request.purpose, provider, model, request.prompt_version, request.learner_id, request.source_id,
+                (request.purpose, provider, model, request.prompt_version, request.user_id, request.source_id,
                  estimate, settings.daily_budget_usd, settings.learner_daily_budget_usd)).fetchone()
         if blocked:
             raise BudgetExceeded()

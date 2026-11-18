@@ -1,7 +1,9 @@
 import { lazy, Suspense } from 'react'
 import { matchPath, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { useAuth } from './auth/AuthContext.jsx'
 import AppHeader from './components/AppHeader.jsx'
 import { useAvailableTopics } from './hooks/useQuestionContent.js'
+import { AuthCallbackPage, ForgotPasswordPage, ResetPasswordPage, SignInPage, SignUpPage } from './pages/AuthPages.jsx'
 
 const HomePage = lazy(() => import('./pages/HomePage.jsx'))
 const PracticePage = lazy(() => import('./pages/PracticePage.jsx'))
@@ -25,7 +27,7 @@ function PracticeRedirect() {
   return <Navigate to={`/topic/${firstTopic?.number || '1'}`} replace />
 }
 
-export default function App() {
+function AuthenticatedApp() {
   // The practice workspace has its own slim header so the question and tutor get the full height.
   const inWorkspace = Boolean(matchPath('/topic/:topicNumber/practice', useLocation().pathname))
   return (
@@ -45,4 +47,26 @@ export default function App() {
       </Suspense>
     </div>
   )
+}
+
+function RequireAuth({ children }) {
+  const auth = useAuth()
+  const location = useLocation()
+  if (auth.loading) return <RouteLoadingState />
+  if (!auth.configured) return <Navigate to="/sign-in" replace />
+  if (!auth.session) return <Navigate to="/sign-in" state={{ from: location }} replace />
+  return children
+}
+
+export default function App() {
+  return <Suspense fallback={<RouteLoadingState />}>
+    <Routes>
+      <Route path="/sign-in" element={<SignInPage />} />
+      <Route path="/sign-up" element={<SignUpPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="*" element={<RequireAuth><AuthenticatedApp /></RequireAuth>} />
+    </Routes>
+  </Suspense>
 }

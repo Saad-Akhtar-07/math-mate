@@ -1,19 +1,14 @@
 """Request helpers shared by the database integration tests."""
 
-import hashlib
+from uuid import UUID, uuid4
 
 
-def learner_id(connection, headers):
-    token = headers['Authorization'].removeprefix('Bearer ')
-    return connection.execute('select learner_id from math_mate.learner_sessions where token_hash = %s',
-                              (hashlib.sha256(token.encode()).hexdigest(),)).fetchone()[0]
+def user_id(_connection, headers):
+    return UUID(headers['Authorization'].removeprefix('Bearer '))
 
 
-def guest(client):
-    response = client.post('/api/v1/learner-sessions')
-    assert response.status_code == 201
-    assert response.headers['cache-control'] == 'no-store'
-    return {'Authorization': f"Bearer {response.json()['access_token']}"}
+def user(_client):
+    return {'Authorization': f'Bearer {uuid4()}'}
 
 
 def part(connection):

@@ -56,12 +56,12 @@ def _attempt(request, context):
     return result.content, violations, mark_result
 
 
-def mark(context, typed_work, images=(), learner_id=None, source_id=None):
+def mark(context, typed_work, images=(), user_id=None, source_id=None):
     settings = ai_settings()
     messages = build_messages(context, typed_work, list(images))
     request = LLMRequest('marker', messages, settings.marker_max_tokens, prompt('marker').version,
                          thinking=True, reasoning_effort=settings.marker_reasoning_effort,
-                         learner_id=learner_id, source_id=source_id)
+                         user_id=user_id, source_id=source_id)
     content, problems, mark_result = _attempt(request, context)
     if problems:
         repair = 'Your previous response broke these rules:\n- ' + '\n- '.join(problems) + '\nReturn the corrected JSON object only.'

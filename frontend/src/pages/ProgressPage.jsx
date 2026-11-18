@@ -1,7 +1,7 @@
 import { ArrowRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getTutorChatTurns, hasGuestSession } from '../api/submissions.js'
+import { getTutorChatTurns } from '../api/submissions.js'
 import useLearnerProgress from '../hooks/useLearnerProgress.js'
 import { useAvailableTopics, useTopicQuestions } from '../hooks/useQuestionContent.js'
 import { workspacePath } from '../utils/paths.js'
@@ -19,7 +19,7 @@ function useTutorTurns(topicNumber, questions, ready) {
   const key = `${topicNumber}:${aiEnabled}`
   useEffect(() => {
     if (!ready) return undefined
-    if (!aiEnabled || !hasGuestSession()) {
+    if (!aiEnabled) {
       setState({ key, turns: [], error: false })
       return undefined
     }

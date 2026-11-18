@@ -122,9 +122,10 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
       <text class="t" x="80" y="222" text-anchor="middle">app</text>
       <path class="ln" d="M142 210H178" marker-start="url(#a1)" marker-end="url(#a1)"/>
       <rect class="box" x="180" y="40" width="130" height="340" rx="10"/>
-      <text class="t" x="245" y="196" text-anchor="middle">Front door</text>
-      <text x="245" y="216" text-anchor="middle">checks who</text>
-      <text x="245" y="232" text-anchor="middle">the student is</text>
+      <text class="t" x="245" y="184" text-anchor="middle">Supabase sign-in</text>
+      <text x="245" y="204" text-anchor="middle">verifies email,</text>
+      <text x="245" y="220" text-anchor="middle">then the front door</text>
+      <text x="245" y="236" text-anchor="middle">checks the account</text>
 
       <rect class="box" x="360" y="40" width="170" height="60" rx="8"/>
       <text class="t" x="445" y="66" text-anchor="middle">Question bank</text>
@@ -173,7 +174,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
       <text class="lab pen" x="833" y="168">1 call</text>
     </svg>
     </div>
-    <figcaption>Everything the backend learns or creates is saved in one database (Supabase online, or a local copy for development). Only the Marker and the Tutor use AI, and both have to pass the budget guard first.</figcaption>
+    <figcaption>Students verify their email and sign in through Supabase before the backend accepts private work. Everything is saved in the one Supabase database. Only the Marker and the Tutor use AI, and both have to pass the budget guard first.</figcaption>
   </figure>
 </section>
 
@@ -405,6 +406,8 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
   <span class="eyebrow">What changed</span>
   <h2>Backend updates</h2>
   <ol class="changes">
+    <li><time datetime="2026-11-18">18 Nov 2026</time><div><h3>Real accounts replace browser guests</h3>
+      <p>Supabase now verifies each student's email and sign-in. The backend checks that account on every private request, and all saved work and student memory belong to that user.</p></div></li>
     <li><time datetime="2026-10-20">20 Oct 2026</time><div><h3>"How it was marked" after each check</h3>
       <p>The student now sees which marks they earned and lost, and which lines lost them (diagram 2). It is built from the Marker's existing answer, so it costs no extra AI.</p></div></li>
     <li><time datetime="2026-10-20">20 Oct 2026</time><div><h3>Guide started</h3>

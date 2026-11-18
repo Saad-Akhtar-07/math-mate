@@ -9,36 +9,36 @@ from ..tutoring import catalogue
 from ..tutoring.learner_model import FORMULA_VERSION, DEFAULT_PRIOR, assessment_evidence, mastery, resolution_evidence
 
 
-def insert_events(cursor, learner_id, part_id, source_kind, source_id, events):
+def insert_events(cursor, user_id, part_id, source_kind, source_id, events):
     if not events:
         return 0
     # The unique index makes recording the same source twice a no-op.
     cursor.execute('''insert into math_mate.learning_events
-        (learner_id, question_part_id, outcome_code, kind, score, weight, misconception_id, source_kind, source_id)
+        (user_id, question_part_id, outcome_code, kind, score, weight, misconception_id, source_kind, source_id)
         select %s, %s, e.outcome_code, e.kind, e.score, e.weight, e.misconception_id, %s, %s
         from unnest(%s::text[], %s::text[], %s::numeric[], %s::numeric[], %s::text[])
             as e(outcome_code, kind, score, weight, misconception_id)
         on conflict do nothing returning id''',
-        (learner_id, part_id, source_kind, source_id,
+        (user_id, part_id, source_kind, source_id,
          [event.outcome_code for event in events], [event.kind for event in events],
          [event.score for event in events], [event.weight for event in events],
          [event.misconception_id for event in events]))
     return len(cursor.fetchall())
 
 
-def refresh_outcomes(cursor, learner_id, codes):
+def refresh_outcomes(cursor, user_id, codes):
     known = catalogue.outcomes()
     codes = sorted(codes)
     siblings = {code: [item.code for item in known.values()
                        if item.subtopic == catalogue.subtopic_of(code) and item.code != code] for code in codes}
     cursor.execute('''select outcome_code, score, weight, created_at from math_mate.learning_events
-        where learner_id = %s and outcome_code = any(%s) and kind = 'attempt' ''', (learner_id, codes))
+        where user_id = %s and outcome_code = any(%s) and kind = 'attempt' ''', (user_id, codes))
     attempts = {}
     for row in cursor.fetchall():
         attempts.setdefault(row['outcome_code'], []).append((row['score'], row['weight'], row['created_at']))
-    cursor.execute('''select outcome_code, mastery from math_mate.learner_outcome_state
-        where learner_id = %s and outcome_code = any(%s)''',
-        (learner_id, sorted({code for group in siblings.values() for code in group})))
+    cursor.execute('''select outcome_code, mastery from math_mate.user_outcome_state
+        where user_id = %s and outcome_code = any(%s)''',
+        (user_id, sorted({code for group in siblings.values() for code in group})))
     states = {row['outcome_code']: float(row['mastery']) for row in cursor.fetchall()}
     rows = []
     for code in codes:
@@ -56,56 +56,56 @@ def refresh_outcomes(cursor, learner_id, codes):
     if not rows:
         return
     columns = list(zip(*rows))
-    cursor.execute('''insert into math_mate.learner_outcome_state
-        (learner_id, outcome_code, mastery, confidence, evidence_weight, attempts, independent_full_marks,
+    cursor.execute('''insert into math_mate.user_outcome_state
+        (user_id, outcome_code, mastery, confidence, evidence_weight, attempts, independent_full_marks,
          last_evidence_at, formula_version)
         select %s, r.*, %s from unnest(%s::text[], %s::numeric[], %s::numeric[], %s::numeric[], %s::int[], %s::int[],
             %s::timestamptz[]) as r
-        on conflict (learner_id, outcome_code) do update set mastery = excluded.mastery,
+        on conflict (user_id, outcome_code) do update set mastery = excluded.mastery,
             confidence = excluded.confidence, evidence_weight = excluded.evidence_weight,
             attempts = excluded.attempts, independent_full_marks = excluded.independent_full_marks,
             last_evidence_at = excluded.last_evidence_at, formula_version = excluded.formula_version,
             updated_at = now()''',
-        (learner_id, FORMULA_VERSION, *[list(column) for column in columns]))
+        (user_id, FORMULA_VERSION, *[list(column) for column in columns]))
 
 
-def record_assessment(cursor, learner_id, part_id, assessment_id, context, mark_result, independent, solution_shown):
+def record_assessment(cursor, user_id, part_id, assessment_id, context, mark_result, independent, solution_shown):
     events = assessment_evidence(context, mark_result, independent, solution_shown)
-    if insert_events(cursor, learner_id, part_id, 'assessment', assessment_id, events):
-        refresh_outcomes(cursor, learner_id, {event.outcome_code for event in events if event.kind == 'attempt'})
+    if insert_events(cursor, user_id, part_id, 'assessment', assessment_id, events):
+        refresh_outcomes(cursor, user_id, {event.outcome_code for event in events if event.kind == 'attempt'})
 
 
-def record_resolution(cursor, learner_id, part_id, session_id):
+def record_resolution(cursor, user_id, part_id, session_id):
     # Misconceptions seen on this part since the session began are resolved by a full-mark resubmission.
     cursor.execute('''select distinct outcome_code, misconception_id from math_mate.learning_events
-        where learner_id = %s and question_part_id = %s and kind = 'misconception_observed'
+        where user_id = %s and question_part_id = %s and kind = 'misconception_observed'
             and created_at >= (select created_at from math_mate.tutor_sessions where id = %s)''',
-        (learner_id, part_id, session_id))
+        (user_id, part_id, session_id))
     observed = [(row['outcome_code'], row['misconception_id']) for row in cursor.fetchall()]
-    insert_events(cursor, learner_id, part_id, 'tutor_session', session_id, resolution_evidence(observed))
+    insert_events(cursor, user_id, part_id, 'tutor_session', session_id, resolution_evidence(observed))
 
 
-def tutor_profile(cursor, learner_id, codes):
+def tutor_profile(cursor, user_id, codes):
     """Everything the tutor needs about the learner, read in one round trip."""
     cursor.execute('''select
         (select coalesce(jsonb_object_agg(outcome_code, jsonb_build_object(
                 'mastery', mastery, 'confidence', confidence, 'attempts', attempts)), '{}')
-            from math_mate.learner_outcome_state
-            where learner_id = %(learner)s and outcome_code = any(%(codes)s)) as states,
+            from math_mate.user_outcome_state
+            where user_id = %(user)s and outcome_code = any(%(codes)s)) as states,
         (select coalesce(jsonb_object_agg(misconception_id, seen), '{}') from (
             select misconception_id, count(*) as seen from math_mate.learning_events
-            where learner_id = %(learner)s and kind = 'misconception_observed'
+            where user_id = %(user)s and kind = 'misconception_observed'
             group by misconception_id) counts) as misconceptions_seen,
         (select coalesce(jsonb_agg(jsonb_build_object('id', misconception_id, 'seen', seen) order by seen desc), '[]') from (
             select misconception_id, count(*) filter (where kind = 'misconception_observed') as seen
             from math_mate.learning_events
-            where learner_id = %(learner)s and misconception_id is not null and created_at > now() - interval '90 days'
+            where user_id = %(user)s and misconception_id is not null and created_at > now() - interval '90 days'
             group by misconception_id
             having count(*) filter (where kind = 'misconception_observed') > count(*) filter (where kind = 'misconception_resolved')
             order by seen desc limit 2) recurring) as recurring,
         (select round(avg(max_assistance)) from (select max_assistance from math_mate.tutor_sessions
-            where learner_id = %(learner)s and state <> 'active' order by updated_at desc limit 5) recent) as help_level''',
-        {'learner': learner_id, 'codes': list(codes)})
+            where user_id = %(user)s and state <> 'active' order by updated_at desc limit 5) recent) as help_level''',
+        {'user': user_id, 'codes': list(codes)})
     return cursor.fetchone()
 
 

@@ -7,7 +7,7 @@ or 202 if the job is still running elsewhere.
 
 from fastapi import APIRouter, BackgroundTasks, Query, Response
 
-from ..dependencies import Learner
+from ..dependencies import User
 from ...schemas.tutoring import RequestAssessment
 from ...services import assessments
 
@@ -15,7 +15,7 @@ router = APIRouter(prefix='/api/v1/me')
 
 
 @router.post('/responses/{part_id}/assessments', status_code=202)
-def request_assessment(part_id: str, body: RequestAssessment, owner: Learner, background: BackgroundTasks,
+def request_assessment(part_id: str, body: RequestAssessment, owner: User, background: BackgroundTasks,
                        response: Response, wait: bool = Query(False)):
     result = assessments.request_assessment(part_id, body, owner, background.add_task, wait)
     if result['status'] not in ('pending', 'processing'):
@@ -24,5 +24,5 @@ def request_assessment(part_id: str, body: RequestAssessment, owner: Learner, ba
 
 
 @router.get('/assessments')
-def list_assessments(owner: Learner, topic_number: str = Query(max_length=20)):
+def list_assessments(owner: User, topic_number: str = Query(max_length=20)):
     return assessments.list_assessments(owner, topic_number)

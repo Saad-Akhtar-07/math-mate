@@ -7,6 +7,7 @@ in tests/live and need MATH_MATE_LIVE_AI_TEST=1 plus an approved batch.
 
 import os
 from contextlib import contextmanager
+from uuid import UUID
 
 import httpx
 import pytest
@@ -64,14 +65,17 @@ def ledger(monkeypatch):
 def client(monkeypatch):
     if os.getenv('MATH_MATE_TEST_DB') != '1':
         pytest.skip('Set MATH_MATE_TEST_DB=1 for rollback-only database tests')
+    from fastapi import HTTPException
     from fastapi.testclient import TestClient
     from backend.app import main as api
     from backend.app.api import dependencies
     from backend.app.db.connection import connect
-    from backend.app.services import (assessments, questions, responses, sessions, storage_cleanup,
+    from backend.app.services import (assessments, questions, responses, storage_cleanup,
                                       tutoring, uploads)
 
     with connect() as connection, connection.transaction(force_rollback=True):
+        if connection.execute("select to_regclass('math_mate.users')").fetchone()[0] is None:
+            pytest.skip('Apply 20261118000000_supabase_auth_users.sql before database tests.')
         for table, filename in MIGRATIONS:
             name = f'math_mate.{table}'
             if connection.execute('select coalesce(to_regclass(%s)::text, to_regproc(%s)::text)', (name, name)).fetchone()[0] is None:
@@ -82,9 +86,18 @@ def client(monkeypatch):
             # A failed request rolls back its own savepoint, as in production.
             with connection.transaction():
                 yield connection
-        for module in (dependencies, questions, sessions, responses, uploads, storage_cleanup,
+        for module in (dependencies, questions, responses, uploads, storage_cleanup,
                        assessments, tutoring, gateway):
             monkeypatch.setattr(module, 'connect', request_connection)
-        # Tests change sessions directly in the database, so verify every token.
-        monkeypatch.setattr(dependencies, 'SESSION_CACHE_SECONDS', 0)
+        def verify_test_token(token):
+            try:
+                return UUID(token)
+            except ValueError:
+                raise HTTPException(401, 'Invalid test token') from None
+        monkeypatch.setattr(dependencies, 'verify_access_token', verify_test_token)
+
+        def ensure_test_user(user_id):
+            connection.execute('insert into math_mate.users(id) values (%s) on conflict (id) do nothing', (user_id,))
+            return user_id
+        monkeypatch.setattr(dependencies, 'ensure_user', ensure_test_user)
         yield TestClient(api.app), connection

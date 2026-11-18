@@ -10,25 +10,15 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(PROJECT_ROOT / '.env')
 
-# MATH_MATE_DB selects the database: `supabase` (the default, and what Render
-# uses) or `local`, a development PostgreSQL. Each reads its own prefixed keys.
-DATABASE_TARGETS = {'supabase': 'SUPABASE_DB', 'local': 'LOCAL_DB'}
 DATABASE_FIELDS = ('HOST', 'PORT', 'NAME', 'USER', 'PASSWORD')
 
 
-def database_target():
-    target = os.getenv('MATH_MATE_DB', '').strip().lower() or 'supabase'
-    if target not in DATABASE_TARGETS:
-        raise RuntimeError(f"MATH_MATE_DB must be one of: {', '.join(DATABASE_TARGETS)}")
-    return target
+def database_env_keys():
+    return tuple(f'SUPABASE_DB_{field}' for field in DATABASE_FIELDS)
 
 
-def database_env_keys(target):
-    return tuple(f'{DATABASE_TARGETS[target]}_{field}' for field in DATABASE_FIELDS)
-
-
-def database_configured(target):
-    return all(os.getenv(key) for key in database_env_keys(target))
+def database_configured():
+    return all(os.getenv(key) for key in database_env_keys())
 
 
 def cors_origins():
@@ -47,6 +37,18 @@ def storage_settings():
 def storage_configured():
     settings = storage_settings()
     return bool(settings['url'] and settings['key'])
+
+
+def auth_settings():
+    url = os.getenv('SUPABASE_URL', '').rstrip('/')
+    return {
+        'url': url,
+        'issuer': f'{url}/auth/v1' if url else '',
+        'jwks_url': os.getenv('SUPABASE_JWKS_URL', '').strip()
+                    or (f'{url}/auth/v1/.well-known/jwks.json' if url else ''),
+        'audience': os.getenv('SUPABASE_JWT_AUDIENCE', 'authenticated').strip() or 'authenticated',
+        'publishable_key': os.getenv('SUPABASE_PUBLISHABLE_KEY', '').strip(),
+    }
 
 
 @dataclass(frozen=True)

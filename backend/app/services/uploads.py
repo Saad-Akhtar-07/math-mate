@@ -19,7 +19,7 @@ def lock_draft(cursor, owner, part_id):
     if not cursor.fetchone():
         raise HTTPException(404, 'Question part not found or retired')
     cursor.execute('''select * from math_mate.student_responses
-        where learner_id = %s and question_part_id = %s for update''', (owner, part_id))
+        where user_id = %s and question_part_id = %s for update''', (owner, part_id))
     row = cursor.fetchone()
     if not row:
         raise HTTPException(404, 'Save your work before uploading a page')
@@ -112,7 +112,7 @@ def page_url(file_id: UUID, owner: UUID):
     with connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute('''select f.bucket, f.object_key from math_mate.solution_files f
             join math_mate.student_responses r on r.id = f.response_id
-            where f.id = %s and r.learner_id = %s and f.state = 'ready' ''', (file_id, owner))
+            where f.id = %s and r.user_id = %s and f.state = 'ready' ''', (file_id, owner))
         file = cursor.fetchone()
     if not file:
         raise HTTPException(404, 'Solution page not found')

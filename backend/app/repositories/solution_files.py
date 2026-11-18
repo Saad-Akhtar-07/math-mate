@@ -31,6 +31,6 @@ def submission_attachments(cursor, submission_ids):
 def current_response(cursor, response_id, owner):
     cursor.execute('''select r.*, exists(select 1 from math_mate.response_submissions s
         where s.response_id = r.id and s.response_revision = r.revision) as submitted
-        from math_mate.student_responses r where r.id = %s and r.learner_id = %s''', (response_id, owner))
+        from math_mate.student_responses r where r.id = %s and r.user_id = %s''', (response_id, owner))
     row = cursor.fetchone()
     return {**row, 'attachments': draft_attachments(cursor, [response_id]).get(response_id, [])}

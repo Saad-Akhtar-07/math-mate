@@ -1,19 +1,21 @@
-import { getSessionId } from './submissions.js'
+import { getAccessToken } from '../auth/supabase.js'
 
 const BASE = (import.meta.env?.VITE_API_URL || '').replace(/\/$/, '')
 
 export async function voiceRequest(path, body, signal, binary = false) {
-  const session = await getSessionId()
+  const token = await getAccessToken()
   signal?.throwIfAborted()
   const controller = new AbortController()
   const abort = () => controller.abort()
   signal?.addEventListener('abort', abort, { once: true })
   const timer = setTimeout(abort, 22000)
   try {
-    const response = await fetch(`${BASE}/api/v1/learner-sessions/${session}/voice/${path}`, {
+    const response = await fetch(`${BASE}/api/v1/me/voice/${path}`, {
       method: 'POST',
       body: body instanceof FormData ? body : JSON.stringify(body),
-      headers: body instanceof FormData ? {} : { 'Content-Type': 'application/json' },
+      headers: body instanceof FormData
+        ? { Authorization: `Bearer ${token}` }
+        : { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       signal: controller.signal,
     })
     if (!response.ok) {

@@ -5,6 +5,7 @@ import '@fontsource-variable/atkinson-hyperlegible-next'
 import '@fontsource-variable/bricolage-grotesque'
 import 'katex/dist/katex.min.css'
 import App from './App.jsx'
+import { AuthProvider } from './auth/AuthContext.jsx'
 import { preloadQuestionContent } from './api/content.js'
 import './theme.css'
 import './index.css'
@@ -14,8 +15,10 @@ preloadQuestionContent()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </AuthProvider>
   </StrictMode>,
 )

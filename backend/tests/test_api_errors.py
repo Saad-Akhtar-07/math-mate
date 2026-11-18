@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from backend.app.api.dependencies import learner
+from backend.app.api.dependencies import user
 from backend.app.main import app
 from backend.app.services import uploads
 from backend.app.services.storage import StorageError
@@ -10,7 +10,7 @@ from backend.app.services.storage import StorageError
 
 def test_storage_setup_details_stay_in_server_logs(monkeypatch, caplog):
     owner = UUID('11111111-1111-4111-8111-111111111111')
-    monkeypatch.setitem(app.dependency_overrides, learner, lambda: owner)
+    monkeypatch.setitem(app.dependency_overrides, user, lambda: owner)
 
     def unavailable(*_args):
         raise StorageError('Storage needs SUPABASE_SECRET_KEY configured on the backend.')

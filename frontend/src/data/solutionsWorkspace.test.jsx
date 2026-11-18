@@ -62,7 +62,7 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
-test('guest saves, submits, views history and edits a new draft without AI requests', async () => {
+test('signed-in user saves, submits, views history and edits a new draft without AI requests', async () => {
   workspace()
   const answer = await screen.findByRole('textbox', { name: 'Your working' })
   await waitFor(() => expect(answer.disabled).toBe(false))

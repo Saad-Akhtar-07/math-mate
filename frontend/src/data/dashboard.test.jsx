@@ -5,12 +5,13 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import App from '../App.jsx'
 import { getQuestionBank, getQuestionSummary } from '../api/content.js'
-import { getStudentResponses, getTutorChatTurns, getTutorReviews, hasGuestSession } from '../api/submissions.js'
+import { getStudentResponses, getTutorChatTurns, getTutorReviews } from '../api/submissions.js'
 
 vi.mock('../api/content.js', () => ({ getQuestionBank: vi.fn(), getQuestionSummary: vi.fn(), getQuestionPartSolution: vi.fn() }))
 vi.mock('../api/submissions.js', async (original) => ({
-  ...await original(), hasGuestSession: vi.fn(), getStudentResponses: vi.fn(), getTutorReviews: vi.fn(), getTutorChatTurns: vi.fn(),
+  ...await original(), getStudentResponses: vi.fn(), getTutorReviews: vi.fn(), getTutorChatTurns: vi.fn(),
 }))
+vi.mock('../auth/AuthContext.jsx', () => ({ useAuth: () => ({ configured: true, loading: false, session: { user: { email: 'student@example.com' } }, user: { email: 'student@example.com' }, signOut: vi.fn() }) }))
 
 const question = (id, code, title, difficulty, parts = ['(a)']) => ({
   id, title, number: 3, total_marks: parts.length * 2, subtopicCodes: [code], difficulty: { label: difficulty }, localDraftOnly: false,
@@ -35,7 +36,6 @@ function renderAt(path) {
   return render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
 }
 function returningStudent() {
-  hasGuestSession.mockReturnValue(true)
   getStudentResponses.mockResolvedValue([{ question_part_id: 'qa-b', typed_work: '2x + 3', revision: 1, attachments: [], submitted: false, updated_at: hoursAgo(0.1) }])
   getTutorReviews.mockResolvedValue([review('qa-a', 2, hoursAgo(1)), review('qb-a', 0, hoursAgo(30)), review('qc-a', 1, hoursAgo(2)), review('qd-a', 2, hoursAgo(3))])
   // A hint before (a) was checked makes that full mark assisted.
@@ -48,11 +48,13 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
   getQuestionSummary.mockResolvedValue({ topic_counts: { 2: questions.length }, subtopic_counts: {} })
   getQuestionBank.mockResolvedValue({ questions })
-  hasGuestSession.mockReturnValue(false)
+  getStudentResponses.mockResolvedValue([])
+  getTutorReviews.mockResolvedValue([])
+  getTutorChatTurns.mockResolvedValue([])
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
-test('a new student gets easy first questions and no learner requests', async () => {
+test('a new signed-in student gets easy first questions', async () => {
   renderAt('/')
   expect(await screen.findByRole('heading', { level: 1, name: 'Welcome to Math Mate' })).toBeTruthy()
   const start = screen.getByRole('region', { name: 'Good places to start' })
@@ -61,8 +63,8 @@ test('a new student gets easy first questions and no learner requests', async ()
   ])
   expect(screen.queryByRole('region', { name: /Writing an expression/ })).toBeNull()
   expect(screen.getByText('Check an answer to see your score.')).toBeTruthy()
-  expect(getStudentResponses).not.toHaveBeenCalled()
-  expect(getTutorReviews).not.toHaveBeenCalled()
+  expect(getStudentResponses).toHaveBeenCalled()
+  expect(getTutorReviews).toHaveBeenCalled()
 })
 
 test('a returning student sees where to continue, suggestions with reasons and their week', async () => {
@@ -143,7 +145,7 @@ test('progress invites a new student to start', async () => {
   renderAt('/progress')
   expect(await screen.findByRole('heading', { name: 'Your progress will appear here' })).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Start practising' }).getAttribute('href')).toBe('/topic/2')
-  expect(getTutorChatTurns).not.toHaveBeenCalled()
+  expect(getTutorChatTurns).toHaveBeenCalled()
 })
 
 test('progress says so when tutor history is unavailable instead of guessing', async () => {

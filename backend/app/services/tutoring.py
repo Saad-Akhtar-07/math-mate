@@ -63,39 +63,39 @@ def sweep_stale_turns(cursor):
         where status = 'processing' and updated_at < now() - interval '2 minutes' ''')
 
 
-def after_assessment(cursor, learner_id, part_id, assessment_id, session, mark_result):
+def after_assessment(cursor, user_id, part_id, assessment_id, session, mark_result):
     """Advance or resolve the tutoring loop once a submission has been marked."""
     if mark_result.full_marks:
         if session:
             cursor.execute('''update math_mate.tutor_sessions set state = %s, current_assessment_id = %s,
                 ended_at = now(), updated_at = now() where id = %s''',
                 ('resolved_with_solution' if session['solution_shown'] else 'resolved', assessment_id, session['id']))
-            learning.record_resolution(cursor, learner_id, part_id, session['id'])
+            learning.record_resolution(cursor, user_id, part_id, session['id'])
         return
     # New mistakes start a fresh ladder, but help already needed is carried over (capped below a worked step).
-    cursor.execute('''insert into math_mate.tutor_sessions (learner_id, question_part_id, current_assessment_id, policy_version)
+    cursor.execute('''insert into math_mate.tutor_sessions (user_id, question_part_id, current_assessment_id, policy_version)
         values (%s, %s, %s, %s)
-        on conflict (learner_id, question_part_id) where state = 'active' do update set
+        on conflict (user_id, question_part_id) where state = 'active' do update set
             current_assessment_id = excluded.current_assessment_id, mistake_index = 0,
             level = least(math_mate.tutor_sessions.level, %s), no_progress_streak = 0, updated_at = now()''',
-        (learner_id, part_id, assessment_id, policy.POLICY_VERSION, CARRIED_LEVEL_LIMIT))
+        (user_id, part_id, assessment_id, policy.POLICY_VERSION, CARRIED_LEVEL_LIMIT))
 
 
 def _active_session(cursor, owner, part_id):
     cursor.execute('''select * from math_mate.tutor_sessions
-        where learner_id = %s and question_part_id = %s and state = 'active' for update''', (owner, part_id))
+        where user_id = %s and question_part_id = %s and state = 'active' for update''', (owner, part_id))
     session = cursor.fetchone()
     if session:
         return session
-    cursor.execute('''insert into math_mate.tutor_sessions (learner_id, question_part_id, policy_version)
-        values (%s, %s, %s) on conflict (learner_id, question_part_id) where state = 'active' do nothing
+    cursor.execute('''insert into math_mate.tutor_sessions (user_id, question_part_id, policy_version)
+        values (%s, %s, %s) on conflict (user_id, question_part_id) where state = 'active' do nothing
         returning *''', (owner, part_id, policy.POLICY_VERSION))
     session = cursor.fetchone()
     if session:
         return session
     # Another request created it first.
     cursor.execute('''select * from math_mate.tutor_sessions
-        where learner_id = %s and question_part_id = %s and state = 'active' for update''', (owner, part_id))
+        where user_id = %s and question_part_id = %s and state = 'active' for update''', (owner, part_id))
     return cursor.fetchone()
 
 
@@ -109,7 +109,7 @@ def _ensure_idle(cursor, session_id, turn_id=None):
 def _insert_turn(cursor, session, owner, body):
     # Insert only while no other reply is in progress; a reply stuck for over two
     # minutes counts as interrupted, as sweep_stale_turns would mark it.
-    cursor.execute('''insert into math_mate.tutor_turns (session_id, learner_id, client_message_id, intent, learner_message)
+    cursor.execute('''insert into math_mate.tutor_turns (session_id, user_id, client_message_id, intent, learner_message)
         select %s, %s, %s, %s, %s where not exists (select 1 from math_mate.tutor_turns
             where session_id = %s and status = 'processing' and updated_at >= now() - interval '2 minutes')
         returning *''', (session['id'], owner, body.client_message_id, body.intent, body.message, session['id']))
@@ -124,7 +124,7 @@ def _retry_turn(cursor, owner, part_id, body):
     sweep_stale_turns(cursor)
     cursor.execute('''select t.*, s.question_part_id from math_mate.tutor_turns t
         join math_mate.tutor_sessions s on s.id = t.session_id
-        where t.learner_id = %s and t.client_message_id = %s for update of t''', (owner, body.client_message_id))
+        where t.user_id = %s and t.client_message_id = %s for update of t''', (owner, body.client_message_id))
     turn = cursor.fetchone()
     if turn['question_part_id'] != part_id:
         raise HTTPException(409, 'This message belongs to another question.')
@@ -148,9 +148,9 @@ def start_turn(part_id, body, owner):
         # One round trip: the question, the saved draft and whether this message was sent before.
         cursor.execute('''select q.question_data,
                 (select typed_work from math_mate.student_responses
-                    where learner_id = %(owner)s and question_part_id = %(part)s) as typed_work,
+                    where user_id = %(owner)s and question_part_id = %(part)s) as typed_work,
                 exists(select 1 from math_mate.tutor_turns
-                    where learner_id = %(owner)s and client_message_id = %(message)s) as seen
+                    where user_id = %(owner)s and client_message_id = %(message)s) as seen
             from math_mate.questions q join math_mate.question_parts p on p.question_id = q.id
             where p.id = %(part)s and p.active''', {'owner': owner, 'part': part_id, 'message': body.client_message_id})
         row = cursor.fetchone()
@@ -301,6 +301,6 @@ def list_turns(owner, topic_number):
             join math_mate.tutor_sessions s on s.id = t.session_id
             join math_mate.question_parts p on p.id = s.question_part_id
             join math_mate.questions q on q.id = p.question_id
-            where t.learner_id = %s and q.topic_code = %s order by t.created_at limit 1000''', (owner, topic_number))
+            where t.user_id = %s and q.topic_code = %s order by t.created_at limit 1000''', (owner, topic_number))
         rows = cursor.fetchall()
     return {'turns': [serialize_turn(row, row['question_part_id']) for row in rows]}

@@ -1,5 +1,6 @@
-import { BarChart3, BookOpen, Home, UserRound } from 'lucide-react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { BarChart3, BookOpen, Home, LogOut, UserRound } from 'lucide-react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
 import './AppHeader.css'
 
@@ -7,6 +8,8 @@ import './AppHeader.css'
 // navigation becomes a tab bar along the bottom of the screen (see AppHeader.css).
 export default function AppHeader() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const { user, signOut } = useAuth()
   const inPractice = pathname === '/practice' || pathname.startsWith('/topic/')
   const linkClass = ({ isActive }) => `tb-link${isActive ? ' is-active' : ''}`
   return (
@@ -26,9 +29,11 @@ export default function AppHeader() {
         </nav>
         <div className="tb-actions">
           <ThemeToggle />
-          <span className="tb-guest" title="Your work is saved to a guest workspace in this browser. Accounts are coming later.">
-            <span className="tb-guest-icon" aria-hidden="true"><UserRound size={16} /></span>Guest
+          <span className="tb-user" title={user?.email}>
+            <span className="tb-user-icon" aria-hidden="true"><UserRound size={16} /></span>
+            <span className="tb-user-email">{user?.email}</span>
           </span>
+          <button className="tb-signout" type="button" title="Sign out" aria-label="Sign out" onClick={async () => { await signOut(); navigate('/sign-in', { replace: true }) }}><LogOut size={18} /></button>
         </div>
       </div>
     </header>

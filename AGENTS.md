@@ -1,10 +1,10 @@
 # Math Mate repository guide
 
-- Read `docs/database-schema.md` before changing database or question-bank code. The SQL in `supabase/migrations/` is the database schema source of truth.
+- Read `docs/schema.md` before changing database, authentication, or question-bank code. The SQL in `supabase/migrations/` is the database schema source of truth.
 - Curated source questions are in `data/*.json`. `backend/scripts/import_questions.py` upserts them into Supabase; the running frontend fetches questions through `backend/app/main.py`. Keep imports repeatable and preserve existing question IDs.
 - The `math_mate` database schema is for the backend. Never place the PostgreSQL password or connection details in `frontend/` or commit `.env`.
 - Add schema changes as new SQL migrations and update the schema document. Do not change the remote schema only through the dashboard.
-- Two databases share one schema: Supabase and a local development PostgreSQL, selected by `MATH_MATE_DB` (`supabase` or `local`). Apply every migration and question import to both with `--target all`, and check both with `python -m backend.scripts.migrate --target all`. Never copy learner data between them.
+- Supabase PostgreSQL is the project's only database. Apply migrations with `python -m backend.scripts.migrate --apply`; do not create a second local PostgreSQL schema or copy user data elsewhere.
 - `docs/backend-guide.html` is the owner's plain-language picture of the backend: simple component diagrams, no file or function names. After any backend feature that changes how components interact or what student memory holds, update the affected diagram and add a line to "What changed", in the same piece of work.
 
 ## Paid AI testing budget

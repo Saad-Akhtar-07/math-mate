@@ -106,10 +106,10 @@ def safe_release(chunks, tokens, check):
         yield pending
 
 
-def stream_reply(context, decision, messages, tokens, learner_id=None, source_id=None):
+def stream_reply(context, decision, messages, tokens, user_id=None, source_id=None):
     """Yield ('delta', text) and ('reset', None) events. One regeneration on a leak, then a template."""
     request = LLMRequest('composer', messages, ai_settings().tutor_max_tokens, prompt('composer').version,
-                         json_output=False, learner_id=learner_id, source_id=source_id)
+                         json_output=False, user_id=user_id, source_id=source_id)
     check = decision.assistance < 4
     emitted = False
     for _ in range(2):

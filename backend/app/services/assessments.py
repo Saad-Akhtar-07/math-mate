@@ -90,7 +90,7 @@ def request_assessment(part_id, body, owner, schedule, wait=False):
         cursor.execute('''insert into math_mate.assessments (submission_id, pipeline_version, independent, marks_maximum)
             select %(submission)s, %(pipeline)s, not exists (select 1 from math_mate.tutor_turns t
                 join math_mate.tutor_sessions s on s.id = t.session_id
-                where s.learner_id = %(owner)s and s.question_part_id = %(part)s and t.status = 'completed'
+                where s.user_id = %(owner)s and s.question_part_id = %(part)s and t.status = 'completed'
                     and t.assistance > 0), %(marks)s
             on conflict (submission_id, pipeline_version) do nothing
             returning *, 1 + (select count(distinct a.submission_id) from math_mate.assessments a
@@ -123,7 +123,7 @@ def run_assessment(assessment_id):
         cursor.execute('''with claimed as (update math_mate.assessments set status = 'processing',
                 run_count = run_count + 1, started_at = now(), updated_at = now()
                 where id = %s and status = 'pending' returning *)
-            select c.*, s.typed_work, r.learner_id, r.question_part_id, q.question_data,
+            select c.*, s.typed_work, r.user_id, r.question_part_id, q.question_data,
                 coalesce((select jsonb_agg(jsonb_build_object('bucket', f.bucket, 'object_key', f.object_key)
                         order by a.position)
                     from math_mate.submission_attachments a join math_mate.solution_files f on f.id = a.file_id
@@ -140,7 +140,7 @@ def run_assessment(assessment_id):
         context = build_part_context(work['question_data'], work['question_part_id'])
         storage = Storage() if work['pages'] else None
         images = [storage.get(page['bucket'], page['object_key']) for page in work['pages']]
-        mark_result = marker.mark(context, work['typed_work'], images, work['learner_id'], assessment_id)
+        mark_result = marker.mark(context, work['typed_work'], images, work['user_id'], assessment_id)
     except AIError as error:
         return _fail(assessment_id, error.code)
     except StorageError:
@@ -154,9 +154,9 @@ def run_assessment(assessment_id):
 
 def complete(cursor, work, context, mark_result):
     """Store the result, evidence and tutoring state. `work` is the claimed assessment row with its work."""
-    learner_id, part_id = work['learner_id'], work['question_part_id']
+    user_id, part_id = work['user_id'], work['question_part_id']
     cursor.execute('''select * from math_mate.tutor_sessions
-        where learner_id = %s and question_part_id = %s and state = 'active' for update''', (learner_id, part_id))
+        where user_id = %s and question_part_id = %s and state = 'active' for update''', (user_id, part_id))
     session = cursor.fetchone()
     result = {**mark_result.output.model_dump(), 'awarded_point_ids': list(mark_result.awarded_point_ids),
               'points': [{'id': point.id, 'code': point.code, 'value': point.value} for point in context.marking_points]}
@@ -171,9 +171,9 @@ def complete(cursor, work, context, mark_result):
     updated = cursor.fetchone()
     if not updated or not mark_result.marked:
         return updated
-    learning.record_assessment(cursor, learner_id, part_id, work['id'], context, mark_result,
+    learning.record_assessment(cursor, user_id, part_id, work['id'], context, mark_result,
                                work['independent'], bool(session and session['solution_shown']))
-    tutoring.after_assessment(cursor, learner_id, part_id, work['id'], session, mark_result)
+    tutoring.after_assessment(cursor, user_id, part_id, work['id'], session, mark_result)
     return updated
 
 
@@ -187,7 +187,7 @@ def list_assessments(owner, topic_number):
             join math_mate.student_responses r on r.id = s.response_id
             join math_mate.question_parts p on p.id = r.question_part_id
             join math_mate.questions q on q.id = p.question_id
-            where r.learner_id = %s and q.topic_code = %s
+            where r.user_id = %s and q.topic_code = %s
             order by a.created_at, s.response_revision limit 1000''', (owner, topic_number))
         rows = cursor.fetchall()
     return {'assessments': [serialize(row, row['question_part_id'], row['attempt_number']) for row in rows]}

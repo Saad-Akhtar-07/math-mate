@@ -13,7 +13,7 @@ from backend.app.ai import gateway
 from backend.app.ai.providers import fake_provider
 from backend.app.ai.types import BudgetExceeded, LLMRequest, ProviderTimeout
 from backend.app.tutoring.part_context import build_part_context
-from helpers import guest, learner_id, save
+from helpers import save, user, user_id
 
 PART = '4024-s23-22-q2-a'
 WRONG = '5p + 8 x 75 = 910\n5p = 1510\np = 302'
@@ -39,8 +39,8 @@ def calls(connection, purpose):
 
 def test_mark_tutor_resubmit_and_remember(client):
     http, connection = client
-    headers = guest(http)
-    owner = learner_id(connection, headers)
+    headers = user(http)
+    owner = user_id(connection, headers)
     before = {purpose: calls(connection, purpose) for purpose in ('marker', 'observer', 'composer')}
     assert save(http, headers, PART, WRONG).status_code == 200
 
@@ -65,43 +65,43 @@ def test_mark_tutor_resubmit_and_remember(client):
     assert latest['marks_awarded'] == 3
 
     session = connection.execute('''select state, max_assistance, turn_count from math_mate.tutor_sessions
-        where learner_id = %s''', (owner,)).fetchall()
+        where user_id = %s''', (owner,)).fetchall()
     assert session == [('resolved', 2, 2)]
     events = connection.execute('''select outcome_code, score, weight from math_mate.learning_events
-        where learner_id = %s and kind = 'attempt' ''', (owner,)).fetchall()
+        where user_id = %s and kind = 'attempt' ''', (owner,)).fetchall()
     assert sorted((code, float(score), float(weight)) for code, score, weight in events) == [
         ('2.5.1', 0.0, 1.0), ('2.5.1', 1.0, 0.5), ('2.5.2', 0.0, 1.0), ('2.5.2', 1.0, 0.5)]
-    states = connection.execute('''select outcome_code, attempts, independent_full_marks from math_mate.learner_outcome_state
-        where learner_id = %s order by outcome_code''', (owner,)).fetchall()
+    states = connection.execute('''select outcome_code, attempts, independent_full_marks from math_mate.user_outcome_state
+        where user_id = %s order by outcome_code''', (owner,)).fetchall()
     assert states == [('2.5.1', 2, 0), ('2.5.2', 2, 0)]
     # Two Marker calls, one Observer call for the typed message, one Composer call for the hint.
     assert {purpose: calls(connection, purpose) - before[purpose] for purpose in before} == {'marker': 2, 'observer': 1, 'composer': 1}
 
-    other = guest(http)
+    other = user(http)
     assert assessments(http, other) == []
     assert http.get('/api/v1/me/tutor-turns?topic_number=2', headers=other).json()['turns'] == []
     turns = http.get('/api/v1/me/tutor-turns?topic_number=2', headers=headers).json()['turns']
     assert {item['teaching_move'] for item in turns} == {'formula_reminder', 'invite_resubmit'}
 
-    connection.execute('delete from math_mate.learners where id = %s', (owner,))
-    assert connection.execute('select count(*) from math_mate.learning_events where learner_id = %s', (owner,)).fetchone()[0] == 0
+    connection.execute('delete from math_mate.users where id = %s', (owner,))
+    assert connection.execute('select count(*) from math_mate.learning_events where user_id = %s', (owner,)).fetchone()[0] == 0
 
 
 def test_help_before_submitting_makes_the_attempt_assisted(client):
     http, connection = client
-    headers = guest(http)
-    owner = learner_id(connection, headers)
+    headers = user(http)
+    owner = user_id(connection, headers)
     assert turn(http, headers, 'How do I start?', 'hint').json()['status'] == 'completed'
     save(http, headers, PART, RIGHT)
     assess(http, headers, 1)
     assert connection.execute('''select a.independent from math_mate.assessments a
         join math_mate.response_submissions s on s.id = a.submission_id
-        join math_mate.student_responses r on r.id = s.response_id where r.learner_id = %s''', (owner,)).fetchone()[0] is False
+        join math_mate.student_responses r on r.id = s.response_id where r.user_id = %s''', (owner,)).fetchone()[0] is False
 
 
 def test_retries_duplicates_and_concurrent_turns(client):
     http, connection = client
-    headers = guest(http)
+    headers = user(http)
     client_id = uuid.uuid4()
     fake_provider().queue(ProviderTimeout())
     failed = turn(http, headers, 'I tried 5p = 1510', client_id=client_id)
@@ -114,15 +114,15 @@ def test_retries_duplicates_and_concurrent_turns(client):
     assert turn(http, headers, 'I tried 5p = 1510', client_id=client_id).json()['id'] == saved['id']
     assert calls(connection, 'observer') == observers
 
-    connection.execute('''insert into math_mate.tutor_turns (session_id, learner_id, client_message_id, intent, learner_message)
-        select id, learner_id, gen_random_uuid(), 'message', 'still thinking' from math_mate.tutor_sessions
-        where learner_id = %s''', (learner_id(connection, headers),))
+    connection.execute('''insert into math_mate.tutor_turns (session_id, user_id, client_message_id, intent, learner_message)
+        select id, user_id, gen_random_uuid(), 'message', 'still thinking' from math_mate.tutor_sessions
+        where user_id = %s''', (user_id(connection, headers),))
     assert turn(http, headers, 'another message').status_code == 409
 
 
 def test_streamed_reply_arrives_in_events_and_is_saved(client):
     http, connection = client
-    headers = guest(http)
+    headers = user(http)
     with http.stream(
             'POST', f'/api/v1/me/question-parts/{PART}/tutor-turns',
             headers={**headers, 'Accept': 'text/event-stream'},
@@ -139,7 +139,7 @@ def test_streamed_reply_arrives_in_events_and_is_saved(client):
 
 def test_unavailable_ai_graph_parts_and_stale_jobs(client, monkeypatch):
     http, connection = client
-    headers = guest(http)
+    headers = user(http)
     save(http, headers, PART, WRONG)
     monkeypatch.setenv('MATH_MATE_AI_PROVIDER', 'off')
     assert assess(http, headers, 1).status_code == 503
@@ -177,7 +177,7 @@ def test_budget_reservations_block_before_any_request(client, monkeypatch):
 
 def test_waiting_request_returns_the_finished_assessment(client):
     http, connection = client
-    headers = guest(http)
+    headers = user(http)
     save(http, headers, PART, WRONG)
     marked = http.post(f'/api/v1/me/responses/{PART}/assessments?wait=true', headers=headers, json={'expected_revision': 1})
     assert marked.status_code == 200

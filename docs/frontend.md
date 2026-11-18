@@ -34,7 +34,7 @@ There is no learner-profile endpoint yet (planned for M6). Home, Practice, the s
 - **Suggestions**: a question to try again, then the focus area, then a subtopic not yet tried, then the next new question elsewhere; graph-only questions are skipped. They are simple rules until server recommendations arrive.
 - **Without help** follows the backend's rule: no completed tutor turn with assistance above zero on that part before the attempt was checked. If tutor history cannot load, Progress shows "–" rather than guessing.
 
-[`useLearnerProgress`](../frontend/src/hooks/useLearnerProgress.js) only reads. It calls `hasGuestSession()` first, so browsing never creates a guest learner.
+[`useLearnerProgress`](../frontend/src/hooks/useLearnerProgress.js) only reads the signed-in user's saved responses and marking history.
 
 ## Theme
 
@@ -46,7 +46,7 @@ The theme follows the device setting until the student presses the toggle; the c
 
 From `frontend/`: `npm test` (pure logic), `npm run test:questions` (screens and question rendering), `npm run test:voice` and `npm run build`. Every screen test mocks the API, so no test contacts a server or an AI provider.
 
-To look at the real app without paid AI, start the API with `MATH_MATE_AI_PROVIDER=fake` and `MATH_MATE_DB=local`, then run `npm run dev`. The fake provider marks and tutors with fixed replies.
+To look at the real app without paid AI, start the API with `MATH_MATE_AI_PROVIDER=fake`, then run `npm run dev`. It uses the configured Supabase database and the fake provider marks and tutors with fixed replies.
 
 ## Known limits
 

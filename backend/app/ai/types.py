@@ -80,7 +80,7 @@ class LLMRequest:
     thinking: bool = False
     reasoning_effort: str | None = None
     json_output: bool = True
-    learner_id: UUID | None = None    # budget accounting only; never sent to the provider
+    user_id: UUID | None = None       # budget accounting only; never sent to the provider
     source_id: UUID | None = None
 
 
