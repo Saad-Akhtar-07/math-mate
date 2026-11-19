@@ -6,6 +6,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from psycopg_pool import PoolTimeout
 
 from .api.routes import assessments, questions, responses, tutoring, uploads
 from .core.config import cors_origins
@@ -42,4 +43,14 @@ async def storage_error(_request, error):
         status_code=503,
         content={'detail': 'Photos are temporarily unavailable. Please try again later.'},
         headers={'Cache-Control': 'no-store'},
+    )
+
+
+@app.exception_handler(PoolTimeout)
+async def database_busy(_request, _error):
+    logging.getLogger(__name__).warning('Database connection pool is temporarily busy')
+    return JSONResponse(
+        status_code=503,
+        content={'detail': 'The question service is busy. Please try again shortly.'},
+        headers={'Cache-Control': 'no-store', 'Retry-After': '1'},
     )

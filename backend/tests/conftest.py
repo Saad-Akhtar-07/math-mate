@@ -73,6 +73,7 @@ def client(monkeypatch):
     from backend.app.services import (assessments, questions, responses, storage_cleanup,
                                       tutoring, uploads)
 
+    questions.clear_content_cache()
     with connect() as connection, connection.transaction(force_rollback=True):
         if connection.execute("select to_regclass('math_mate.users')").fetchone()[0] is None:
             pytest.skip('Apply 20261118000000_supabase_auth_users.sql before database tests.')
@@ -101,3 +102,4 @@ def client(monkeypatch):
             return user_id
         monkeypatch.setattr(dependencies, 'ensure_user', ensure_test_user)
         yield TestClient(api.app), connection
+    questions.clear_content_cache()

@@ -37,7 +37,7 @@ class FreeLedger:
 
 def contexts(part_ids):
     found = {}
-    for path in sorted((PROJECT_ROOT / 'data').glob('*.json')):
+    for path in sorted((PROJECT_ROOT / 'data').rglob('*.json')):
         for question in json.loads(path.read_text(encoding='utf-8'))['questions']:
             for part_id in part_ids - found.keys():
                 try:

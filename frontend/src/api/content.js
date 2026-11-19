@@ -53,13 +53,17 @@ export function getQuestionSummary() {
 }
 
 export function preloadQuestionContent() {
-  // Topic 2 is the current question bank. Start its download alongside the
-  // summary, then pick up any topics added to the database later.
-  void getQuestionBank('2').catch(() => {})
+  // Fetch the tiny summary first, then warm one bank at a time. Navigation
+  // shares any in-flight request, while startup never floods the DB pool.
   void getQuestionSummary()
-    .then((summary) => {
-      for (const [topicCode, count] of Object.entries(summary?.topic_counts || {})) {
-        if (count > 0 && topicCode !== '2') void getQuestionBank(topicCode).catch(() => {})
+    .then(async (summary) => {
+      const counts = summary?.topic_counts || {}
+      const publishedFirst = ['1', '2']
+      const remaining = Object.keys(counts).filter((code) => !publishedFirst.includes(code))
+      for (const topicCode of [...publishedFirst, ...remaining]) {
+        if ((counts[topicCode] || 0) > 0) {
+          await getQuestionBank(topicCode).catch(() => null)
+        }
       }
     })
     .catch(() => {})

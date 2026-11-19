@@ -24,7 +24,7 @@ def syllabus_topics():
 
 
 def outcome_code(subtopic, index):
-    # A subtopic with one outcome uses its own code, as in data/*.json ("2.8", "2.11").
+    # A subtopic with one outcome uses its own code in the curated data ("2.8", "2.11").
     return subtopic['code'] if len(subtopic['outcomes']) == 1 else f"{subtopic['code']}.{index}"
 
 

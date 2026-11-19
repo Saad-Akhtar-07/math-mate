@@ -89,3 +89,14 @@ test('a drawing question keeps its blank pattern and written answer box', async 
   expect(screen.queryByText('Sketch your answer')).toBeNull()
   expect(screen.queryByText('Draw here')).toBeNull()
 })
+
+test('a Topic 1 Number diagram opens in the same practice workspace', async () => {
+  render(<MemoryRouter initialEntries={['/topic/1/practice?subtopic=1.2&question=4024-s22-11-t1-q18']}><Routes>
+    <Route path="/topic/:topicNumber/practice" element={<QuestionPracticePage />} />
+  </Routes></MemoryRouter>)
+
+  await waitFor(() => expect(document.querySelector('.ws-title')?.textContent).toBe('Set notation and Venn diagrams'))
+  expect(document.querySelector('a[href="/topic/1/1.2"]')?.textContent).toContain('1.2 Sets')
+  expect(document.querySelector('.standard-diagram svg')?.getAttribute('viewBox')).toBe('0 0 500 300')
+  expect(document.querySelector('textarea')).toBeTruthy()
+})

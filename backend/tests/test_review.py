@@ -16,7 +16,7 @@ WRONG = '5p + 8 x 75 = 910\n5p = 1510\np = 302'
 
 @pytest.fixture
 def context():
-    question = json.loads((PROJECT_ROOT / 'data/4024_s23_22_algebra_and_graphs.json').read_text(encoding='utf-8'))['questions'][0]
+    question = json.loads((PROJECT_ROOT / 'data/topic-2-algebra-and-graphs/4024_s23_22_algebra_and_graphs.json').read_text(encoding='utf-8'))['questions'][0]
     return build_part_context(question, '4024-s23-22-q2-a')
 
 

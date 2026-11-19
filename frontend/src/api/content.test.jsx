@@ -6,21 +6,37 @@ afterEach(() => {
 })
 
 test('startup prefetch shares the topic request with later navigation', async () => {
-  const fetchMock = vi.fn(async (url) => new Response(JSON.stringify(
-    url.endsWith('/questions/summary')
-      ? { topic_counts: { 2: 181 }, subtopic_counts: {} }
-      : { questions: [{ id: 'question-one' }] },
-  ), { headers: { 'Content-Type': 'application/json' } }))
+  const pendingBanks = []
+  const response = (body) => new Response(JSON.stringify(body), {
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const fetchMock = vi.fn((url) => {
+    if (url.endsWith('/questions/summary')) {
+      return Promise.resolve(response({ topic_counts: { 1: 12, 2: 181 }, subtopic_counts: {} }))
+    }
+    return new Promise((resolve) => pendingBanks.push(() => resolve(response({
+      questions: [{ id: 'question-one' }],
+    }))))
+  })
   vi.stubGlobal('fetch', fetchMock)
 
   const { getQuestionBank, getQuestionSummary, preloadQuestionContent } = await import('./content.js')
   preloadQuestionContent()
   expect(fetchMock.mock.calls.map(([url]) => url.slice(url.indexOf('/api/v1')))).toEqual([
-    '/api/v1/topics/2/questions',
     '/api/v1/questions/summary',
   ])
 
-  expect((await getQuestionBank('2')).questions).toHaveLength(1)
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+  expect(fetchMock.mock.calls[1][0]).toContain('/api/v1/topics/1/questions')
+  pendingBanks.shift()()
+
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+  expect(fetchMock.mock.calls[2][0]).toContain('/api/v1/topics/2/questions')
+  const topicTwo = getQuestionBank('2')
+  expect(fetchMock).toHaveBeenCalledTimes(3)
+  pendingBanks.shift()()
+
+  expect((await topicTwo).questions).toHaveLength(1)
   expect((await getQuestionSummary()).topic_counts['2']).toBe(181)
-  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(fetchMock).toHaveBeenCalledTimes(3)
 })

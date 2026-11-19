@@ -65,7 +65,7 @@ Render uses `backend/` as its working directory and starts `uvicorn app.main:app
 .\.venv\Scripts\python.exe -m backend.scripts.sync_outcomes
 ```
 
-`tests/test_question_files.py` is the acceptance gate for every `data/*.json` file. It checks file names, topic placement, IDs, outcome codes, controlled skills, marks, mark-scheme entries, prompt blocks and response types, and names the exact part and rule when something is wrong. Run it after adding an extracted paper.
+`tests/test_question_files.py` is the acceptance gate for every JSON question file below `data/`. It checks file names, topic placement, IDs, outcome codes, controlled skills, marks, mark-scheme entries, prompt blocks and response types, and names the exact part and rule when something is wrong. Run it after adding an extracted paper.
 
 `sync_outcomes` regenerates `app/tutoring/catalogue/outcomes.json` from the official outcomes in `frontend/src/data/syllabus.js`, keeping skill aliases. Run it with `--apply` after changing syllabus outcomes.
 

@@ -1,4 +1,4 @@
-"""Acceptance gate for curated question files in data/*.json.
+"""Acceptance gate for curated question files below data/.
 
 Every file produced by the extraction prompts must pass these checks before
 import. They confirm the file fits this project (codes, skills, marks, IDs,
@@ -34,7 +34,7 @@ LEAF_ONLY = ('marks', 'response', 'mark_scheme', 'bank_alignment', 'source_align
 
 
 def paper_files():
-    return sorted((PROJECT_ROOT / 'data').glob('*.json'))
+    return sorted((PROJECT_ROOT / 'data').rglob('*.json'))
 
 
 def leaves(node):
@@ -57,8 +57,17 @@ def check_block(block, where):
             span = (block.get(axis) or {}).get('range')
             if not (isinstance(span, list) and len(span) == 2 and all(isinstance(v, (int, float)) for v in span) and span[1] > span[0]):
                 problems.append(f'{where}: graph {axis} needs an increasing numeric range')
-    if block['type'] == 'diagram' and not (isinstance(block.get('view_box'), list) and len(block['view_box']) == 2):
-        problems.append(f'{where}: diagram needs view_box [width, height]')
+    if block['type'] == 'diagram':
+        view_box = block.get('view_box')
+        valid_view_box = (
+            isinstance(view_box, list)
+            and len(view_box) in (2, 4)
+            and all(isinstance(value, (int, float)) for value in view_box)
+            and view_box[-2] > 0
+            and view_box[-1] > 0
+        )
+        if not valid_view_box:
+            problems.append(f'{where}: diagram needs view_box [width, height] or [x, y, width, height]')
     panels = block.get('patterns') or [block]
     for panel in panels:
         for element in panel.get('elements') or []:

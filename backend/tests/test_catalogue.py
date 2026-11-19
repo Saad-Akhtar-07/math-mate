@@ -17,7 +17,7 @@ def leaf_ids(question):
 
 
 def source_parts():
-    for path in sorted((PROJECT_ROOT / 'data').glob('*.json')):
+    for path in sorted((PROJECT_ROOT / 'data').rglob('*.json')):
         for question in json.loads(path.read_text(encoding='utf-8'))['questions']:
             for part_id, part in leaf_ids(question):
                 yield question, part_id, part

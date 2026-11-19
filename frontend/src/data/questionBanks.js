@@ -2,7 +2,7 @@ import { syllabus } from './syllabus.js'
 
 // Source-data adapter retained for question-rendering tests.
 // The running app fetches its question bank from the backend API instead.
-const papers = import.meta.glob('../../../data/*.json', { eager: true, import: 'default' })
+const papers = import.meta.glob('../../../data/**/*.json', { eager: true, import: 'default' })
 
 function firstLeaf(part) {
   return part?.parts?.length ? firstLeaf(part.parts[0]) : part

@@ -7,23 +7,29 @@ import { fitPatternViewBox, validateStandardBlock } from '../utils/standardConte
 import { getPaperCounts, getSubtopicQuestions, getTopicQuestions } from './questionBanks.js'
 import { syllabus } from './syllabus.js'
 
+const dataDirectory = new URL('../../../data/', import.meta.url)
+
+function sourcePapers(folder, suffix) {
+  const folderUrl = new URL(`${folder}/`, dataDirectory)
+  return readdirSync(folderUrl).filter((name) => name.endsWith(suffix))
+    .map((name) => JSON.parse(readFileSync(new URL(name, folderUrl), 'utf8')))
+}
+
 test('the complete Topic 2 bank is browsable by subtopic and paper type', () => {
   const topic2Questions = getTopicQuestions('2')
-  const dataDirectory = new URL('../../../data/', import.meta.url)
-  const sourcePapers = readdirSync(dataDirectory).filter((name) => name.endsWith('_algebra_and_graphs.json'))
-    .map((name) => JSON.parse(readFileSync(new URL(name, dataDirectory), 'utf8')))
-  const expectedCount = sourcePapers.reduce((sum, paper) => sum + paper.questions.length, 0)
+  const papers = sourcePapers('topic-2-algebra-and-graphs', '_algebra_and_graphs.json')
+  const expectedCount = papers.reduce((sum, paper) => sum + paper.questions.length, 0)
   expect(topic2Questions).toHaveLength(expectedCount)
   expect(new Set(topic2Questions.map((question) => question.id)).size).toBe(expectedCount)
-  const papers2022 = sourcePapers.filter((paper) => paper.collection.source.year === 2022)
+  const papers2022 = papers.filter((paper) => paper.collection.source.year === 2022)
   const importedIds = new Set(topic2Questions.map((question) => question.id))
   expect(papers2022).toHaveLength(8)
   expect(papers2022.reduce((sum, paper) => sum + paper.questions.length, 0)).toBe(42)
   for (const paper of papers2022) {
     for (const question of paper.questions) expect(importedIds.has(question.id), question.id).toBe(true)
   }
-  expect(getPaperCounts('2').nonCalculator).toBe(sourcePapers.filter((paper) => !paper.collection.source.calculator_allowed).reduce((sum, paper) => sum + paper.questions.length, 0))
-  expect(getPaperCounts('2').calculator).toBe(sourcePapers.filter((paper) => paper.collection.source.calculator_allowed).reduce((sum, paper) => sum + paper.questions.length, 0))
+  expect(getPaperCounts('2').nonCalculator).toBe(papers.filter((paper) => !paper.collection.source.calculator_allowed).reduce((sum, paper) => sum + paper.questions.length, 0))
+  expect(getPaperCounts('2').calculator).toBe(papers.filter((paper) => paper.collection.source.calculator_allowed).reduce((sum, paper) => sum + paper.questions.length, 0))
   const subtopics = syllabus.find((topic) => topic.number === '2').subtopics
   expect(subtopics.length).toBeGreaterThan(0)
   for (const question of topic2Questions) {
@@ -36,9 +42,31 @@ test('the complete Topic 2 bank is browsable by subtopic and paper type', () => 
   }
 })
 
+test('the complete Topic 1 bank is browsable by subtopic and paper type', () => {
+  const questions = getTopicQuestions('1')
+  const papers = sourcePapers('topic-1-number', '_number.json')
+  const expectedCount = papers.reduce((sum, paper) => sum + paper.questions.length, 0)
+  const subtopics = syllabus.find((topic) => topic.number === '1').subtopics
+
+  expect(papers).toHaveLength(32)
+  expect(questions).toHaveLength(expectedCount)
+  expect(new Set(questions.map((question) => question.id)).size).toBe(expectedCount)
+  expect(questions.every((question) => question.id.includes('-t1-'))).toBe(true)
+  expect(getPaperCounts('1').nonCalculator).toBe(papers.filter((paper) => !paper.collection.source.calculator_allowed).reduce((sum, paper) => sum + paper.questions.length, 0))
+  expect(getPaperCounts('1').calculator).toBe(papers.filter((paper) => paper.collection.source.calculator_allowed).reduce((sum, paper) => sum + paper.questions.length, 0))
+  for (const question of questions) {
+    expect(question.parts.length, question.id).toBeGreaterThan(0)
+    expect(question.subtopicCodes.length, question.id).toBeGreaterThan(0)
+    for (const code of question.subtopicCodes) {
+      expect(subtopics.some((subtopic) => subtopic.code === code), question.id).toBe(true)
+      expect(getSubtopicQuestions(code).some((item) => item.id === question.id)).toBe(true)
+    }
+  }
+})
+
 test('Topic 2 learning outcome codes follow the official 2025-2027 syllabus numbering', () => {
   // Outcome counts per subtopic in the Cambridge 4024 syllabus for 2025-2027 (version 2).
-  // A subtopic with one outcome uses its own code, as in data/*.json ("2.8", "2.11").
+  // A subtopic with one outcome uses its own code in the curated data ("2.8", "2.11").
   const officialOutcomeCounts = { '2.1': 2, '2.2': 5, '2.3': 2, '2.4': 2, '2.5': 6, '2.6': 4, '2.7': 3, '2.8': 1, '2.9': 4, '2.10': 4, '2.11': 1, '2.12': 3 }
   const subtopics = syllabus.find((topic) => topic.number === '2').subtopics
   expect(Object.fromEntries(subtopics.map((subtopic) => [subtopic.code, subtopic.outcomes.length]))).toEqual(officialOutcomeCounts)
@@ -46,10 +74,9 @@ test('Topic 2 learning outcome codes follow the official 2025-2027 syllabus numb
     ? [subtopic.code]
     : subtopic.outcomes.map((_, index) => `${subtopic.code}.${index + 1}`)))
 
-  const dataDirectory = new URL('../../../data/', import.meta.url)
   const leafParts = (item) => item.parts?.length ? item.parts.flatMap(leafParts) : [item]
-  const parts = readdirSync(dataDirectory).filter((name) => name.endsWith('_algebra_and_graphs.json'))
-    .flatMap((name) => JSON.parse(readFileSync(new URL(name, dataDirectory), 'utf8')).questions.flatMap(leafParts))
+  const parts = sourcePapers('topic-2-algebra-and-graphs', '_algebra_and_graphs.json')
+    .flatMap((paper) => paper.questions.flatMap(leafParts))
   expect(parts.length).toBeGreaterThan(0)
   for (const part of parts) {
     const codes = part.bank_alignment?.learning_outcome_codes || []
@@ -70,6 +97,15 @@ test('all imported question and part content blocks render', () => {
       expect(markup, `${question.id}: ${block.type} contains internal copy or broken characters`).not.toMatch(/source paper|source question|reconstructed from counts|compare with the source|[ÃÂ]/i)
     }
   }
+})
+
+test('Topic 1 four-value SVG view boxes render without changing their coordinates', () => {
+  const question = getTopicQuestions('1').find((item) => item.id === '4024-s22-11-t1-q18')
+  const diagram = question.parts.flatMap((part) => part.prompt).find((block) => block.type === 'diagram')
+  expect(diagram.view_box).toEqual([0, 0, 500, 300])
+  const markup = renderToStaticMarkup(<ContentBlockRenderer block={diagram} />)
+  expect(markup).toContain('viewBox="0 0 500 300"')
+  expect(markup).not.toContain('unsupported-block')
 })
 
 test('cross and circle patterns show clear symbols and a blank next pattern', () => {

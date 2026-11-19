@@ -59,7 +59,7 @@ def subtopic_codes_for(question):
 
 
 def read_rows():
-    files = sorted(DATA_DIR.glob("*.json"))
+    files = sorted(DATA_DIR.rglob("*.json"))
     if not files:
         raise ValueError(f"No JSON files found in {DATA_DIR}")
     rows = []
@@ -94,7 +94,7 @@ def read_rows():
             rows.append({
                 "id": question_id,
                 "collection_id": collection["id"],
-                "source_file": path.name,
+                "source_file": path.relative_to(DATA_DIR).as_posix(),
                 "topic_code": topic_code,
                 "subtopic_codes": subtopic_codes_for(question),
                 "question_number": number,

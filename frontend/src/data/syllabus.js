@@ -1,7 +1,7 @@
 // Generated from the curriculum content supplied in the product brief.
 // Render curriculum wording from this source of truth.
 // Outcomes follow the official Cambridge 4024 syllabus for 2025-2027 (version 2): outcome N of
-// subtopic S has learning outcome code S.N, or S when the subtopic has one outcome, matching data/*.json.
+// subtopic S has learning outcome code S.N, or S when the subtopic has one outcome, matching the curated data.
 // backend/app/tutoring/catalogue/outcomes.json is generated from these outcomes (backend.scripts.sync_outcomes).
 // Regenerating from the brief would overwrite this numbering.
 

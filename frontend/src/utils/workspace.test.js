@@ -50,8 +50,10 @@ test('every leaf part in the question bank keeps its own prompt after grouping',
       : [{ ...part, label: nextLabels.join('') || 'Answer', prompt: nextPrompts }]
   }
   let checked = 0
-  for (const file of readdirSync(dataDir).filter((name) => name.endsWith('.json'))) {
-    for (const question of JSON.parse(readFileSync(new URL(file, dataDir), 'utf8')).questions) {
+  const files = readdirSync(dataDir, { recursive: true }).filter((name) => name.endsWith('.json'))
+  for (const file of files) {
+    const relativeUrl = file.replaceAll('\\', '/')
+    for (const question of JSON.parse(readFileSync(new URL(relativeUrl, dataDir), 'utf8')).questions) {
       const parts = (question.parts || []).flatMap((part) => leaves(part))
       const groups = groupParts(parts)
       assert.equal(groups.flatMap((group) => group.items).length, parts.length, question.id)
