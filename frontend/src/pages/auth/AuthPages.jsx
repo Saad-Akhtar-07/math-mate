@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext.jsx'
-import { supabase } from '../auth/supabase.js'
+import { useAuth } from '../../auth/AuthContext.jsx'
+import { supabase } from '../../auth/supabase.js'
 import './AuthPages.css'
 
 function AuthShell({ title, subtitle, children }) {
@@ -146,3 +146,4 @@ export function AuthCallbackPage() {
     {error ? <><p className="auth-error" role="alert">{error}</p><Link className="auth-primary" to="/sign-in">Go to sign in</Link></> : <p className="auth-note" role="status">Please wait...</p>}
   </AuthShell>
 }
+

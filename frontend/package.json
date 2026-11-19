@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test": "node --test src/api/*.test.js src/utils/*.test.js",
+    "test:all": "npm test && npm run test:voice && npm run test:questions",
     "test:voice": "vitest run src/voice-tests",
     "test:questions": "vitest run src/data",
     "dev": "vite",

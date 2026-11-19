@@ -94,7 +94,3 @@ export function getPaperCounts(topicNumber) {
   const calculator = questions.filter((question) => question.paper.calculatorAllowed).length
   return { total: questions.length, calculator, nonCalculator: questions.length - calculator }
 }
-
-export function getFirstAvailableTopic() {
-  return syllabus.find((topic) => getTopicQuestions(topic.number).length > 0)
-}

@@ -5,7 +5,6 @@ const REQUEST_TIMEOUT_MS = import.meta.env.PROD ? 90000 : 10000
 
 const questionBankCache = new Map()
 const questionSummaryCache = new Map()
-const notesCache = new Map()
 
 async function fetchContent(path) {
   const controller = new AbortController()
@@ -67,14 +66,4 @@ export function preloadQuestionContent() {
       }
     })
     .catch(() => {})
-}
-
-export async function getQuestionCount(topicNumber) {
-  const summary = await getQuestionSummary()
-  return summary.topic_counts[String(topicNumber)] || 0
-}
-
-export function getNotesForSubtopic(code) {
-  const key = String(code)
-  return cachedFetch(notesCache, key, `/subtopics/${encodeURIComponent(key)}/notes`)
 }

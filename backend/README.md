@@ -9,6 +9,7 @@ backend/
   app/
     main.py                  FastAPI assembly, middleware and connection-pool lifecycle
     api/
+      router.py              One place that assembles all HTTP route modules
       dependencies.py        Supabase JWT authentication and private-response headers
       routes/                HTTP endpoints and request validation
     core/config.py           Environment configuration and project-root paths
@@ -29,7 +30,7 @@ backend/
 
 Routes delegate to services. Services own transaction boundaries so a draft update or submission snapshot commits as one operation. Shared image queries live in `repositories/`; private Storage access and compression stay in separate service modules. Administrative tools import these packages normally and run with `python -m`.
 
-Each layer imports only the layers below it: routes → services → tutoring → ai. `tutoring/` never opens a database connection, and services never hold a connection during a model call. See [the AI tutoring plan](../docs/ai-tutoring-plan.md).
+Each layer imports only the layers below it: routes → services → tutoring → ai. `tutoring/` never opens a database connection, and services never hold a connection during a model call.
 
 ## AI marking and tutoring
 

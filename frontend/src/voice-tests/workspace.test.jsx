@@ -14,7 +14,6 @@ vi.mock('../api/content.js', () => ({
       parts: [{ id: 'part-one', label: '(a)', marks: 1, prompt: [] }],
     }],
   }),
-  getQuestionCount: vi.fn().mockResolvedValue(1),
   getQuestionSummary: vi.fn().mockResolvedValue({ topic_counts: { 8: 1 }, subtopic_counts: {} }),
   getQuestionPartSolution: vi.fn(),
 }))

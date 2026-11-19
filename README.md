@@ -2,6 +2,23 @@
 
 Math Mate is a React frontend and a FastAPI question-bank API for Cambridge O Level Mathematics 4024 practice.
 
+## Project map
+
+```text
+frontend/               React pages, components, API clients and browser auth
+backend/app/
+  api/                  HTTP dependencies, route modules and their central router
+  services/             Database transactions and application workflows
+  tutoring/             Pure marking, tutoring policy and learner-model logic
+  ai/                   Model gateway, providers, prices and versioned prompts
+data/                   Curated source questions imported into Supabase
+supabase/migrations/    PostgreSQL schema source of truth
+docs/                   Frontend, backend and schema guides
+extraction-prompts/     Preserved question-extraction prompt tooling; not runtime code
+```
+
+The browser talks to FastAPI, and FastAPI is the only application layer that talks to Supabase PostgreSQL. See [the frontend guide](docs/frontend.md), [backend guide](backend/README.md), and [schema guide](docs/schema.md) before extending those areas.
+
 ## Run locally
 
 Create `.env` from `.env.example` and fill in the server-side Supabase PostgreSQL connection details. Set `SUPABASE_URL` for JWT verification. For solution photos, also set `SUPABASE_SECRET_KEY` (or the legacy `SUPABASE_SERVICE_ROLE_KEY`). These secrets stay on the backend. Then, from the project root, install and start the backend:
@@ -71,7 +88,7 @@ The script prints `Database healthy` when it can connect and query PostgreSQL. I
 
 ## Checks
 
-From `frontend/`, run `npm run build`, `npm run test:questions`, `npm run test:voice` and `npm test`.
+From `frontend/`, run `npm run test:all` and `npm run build`.
 
 Run `npm run test:questions` after adding JSON papers. It checks that imported blocks render and graph labels stay inside the SVG viewport; the labelled distance–time graph is a regression case for text overlapping a line.
 Keep `caption` and diagram label text student-facing. The question tests also reject internal source-paper wording and corrupted characters in rendered blocks. Use `display_view_box` on a `pattern_sequence` when its symbols need a tighter, shared view across panels.

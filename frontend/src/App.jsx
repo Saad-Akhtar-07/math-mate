@@ -3,7 +3,7 @@ import { matchPath, Navigate, Route, Routes, useLocation } from 'react-router-do
 import { useAuth } from './auth/AuthContext.jsx'
 import AppHeader from './components/AppHeader.jsx'
 import { useAvailableTopics } from './hooks/useQuestionContent.js'
-import { AuthCallbackPage, ForgotPasswordPage, ResetPasswordPage, SignInPage, SignUpPage } from './pages/AuthPages.jsx'
+import { AuthCallbackPage, ForgotPasswordPage, ResetPasswordPage, SignInPage, SignUpPage } from './pages/auth/AuthPages.jsx'
 
 const HomePage = lazy(() => import('./pages/HomePage.jsx'))
 const PracticePage = lazy(() => import('./pages/PracticePage.jsx'))

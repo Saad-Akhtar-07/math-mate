@@ -18,3 +18,4 @@
 .auth-switch { margin: 26px 0 0; padding-top: 22px; border-top: 1px solid var(--line); color: var(--ink-2); text-align: center; }
 .auth-switch a { color: var(--brand); font-weight: 800; }
 @media (max-width: 520px) { .auth-page { padding: 0; align-items: stretch; } .auth-card { padding: 28px 22px; border: 0; border-radius: 0; box-shadow: none; } }
+
