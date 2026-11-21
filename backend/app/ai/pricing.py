@@ -15,7 +15,7 @@ class Price:
     output: Decimal
 
 
-# USD per 1M tokens at peak rates, checked 17 October 2026 on
+# USD per 1M tokens at peak rates, rechecked 19 November 2026 on
 # https://api-docs.deepseek.com/quick_start/pricing. Off-peak is cheaper, so
 # peak rates keep every estimate on the safe side.
 PRICES = {

@@ -26,6 +26,13 @@ test('the quoted line is wrong and the other lines stay neutral', () => {
   assert.deepEqual(rows[1].mistakes, [mistake('5p=1510')])
 })
 
+test('all five submitted lines stay in order with only the identified line crossed', () => {
+  const work = ['m = (7 - 3) / (5 - 2)', 'm = 4 / 3', 'y - 3 = 4/3(x - 2)', '3y - 9 = 4x - 8', '3y = 4x + 1'].join('\n')
+  const rows = markedRows(work, { mistakes: [mistake('3y - 9 = 4x - 8', { type: 'method' })] })
+  assert.deepEqual(rows.map((row) => row.text), work.split('\n'))
+  assert.deepEqual(rows.map((row) => row.verdict), [null, null, null, 'wrong', null])
+})
+
 test('a quote that is part of a line marks that line', () => {
   const rows = markedRows('so 5p = 1510 and p = 302', { mistakes: [mistake('5p = 1510')] })
   assert.equal(rows[0].verdict, 'wrong')
@@ -36,12 +43,12 @@ test('full marks tick every line', () => {
   assert.deepEqual(rows.map((row) => row.verdict), ['right', 'right'])
 })
 
-test('unmatched quotes and missing steps get their own rows', () => {
+test('unmatched quotes and missing steps use safe placeholders', () => {
   const rows = markedRows(WORK, { mistakes: [mistake('p = 3.02'), mistake('Missing step: rearrange to p = ...')] })
   assert.deepEqual(verdicts(rows).slice(3), [
-    ['line', 'p = 3.02', 'wrong'], ['missing', 'rearrange to p = ...', 'wrong'],
+    ['issue', '', 'wrong'], ['missing', '', 'wrong'],
   ])
-  assert.equal(markedRows('', { mistakes: [mistake('No working shown')] })[0].text, 'No working shown')
+  assert.equal(markedRows('', { mistakes: [mistake('No working shown')] })[0].text, '')
 })
 
 test('page headings are kept as headings, blank lines dropped, and older attempts stay neutral', () => {

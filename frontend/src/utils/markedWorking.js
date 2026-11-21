@@ -12,7 +12,6 @@ export const MISTAKE_TYPE_LABELS = {
 // The Marker reads typed work first, then each photo page, and may head each part.
 const PAGE_HEADING = /^(?:(?:photo\s+)?page\s+\d+|typed\s+work(?:ing)?)\s*:?\s*$/i
 const MISSING = /^\s*(?:missing|no working|not shown|omitted)\b/i
-const MISSING_PREFIX = /^\s*missing(?:\s+step)?\s*[:\-–]\s*/i
 
 /** Lower-case text without spacing, $ delimiters or LaTeX spacing commands, for comparing lines. */
 export function comparable(text) {
@@ -40,9 +39,10 @@ function findLine(lines, step) {
 }
 
 /**
- * Rows for the panel: page headings, the student's lines, then any mistake that quotes
- * no line. A quoted line is wrong. With full marks every line is right; otherwise other
- * lines stay neutral, because the Marker does not judge each line on its own.
+ * Rows for the panel: page headings and the student's own lines. A quoted line is
+ * wrong. Missing or unmatched mistakes get a safe placeholder instead of model text,
+ * because that text could accidentally describe the correction. With full marks every
+ * line is right; otherwise other lines stay neutral.
  */
 export function markedRows(whatIRead, review, fullMarks = false) {
   const rows = String(whatIRead || '').split('\n').map((text) => text.trim()).filter(Boolean)
@@ -56,9 +56,9 @@ export function markedRows(whatIRead, review, fullMarks = false) {
       lines[index].verdict = 'wrong'
       lines[index].mistakes.push(mistake)
     } else if (MISSING.test(mistake.step)) {
-      rows.push({ kind: 'missing', text: mistake.step.replace(MISSING_PREFIX, ''), verdict: 'wrong', mistakes: [mistake] })
+      rows.push({ kind: 'missing', text: '', verdict: 'wrong', mistakes: [mistake] })
     } else {
-      rows.push({ kind: 'line', text: mistake.step, verdict: 'wrong', mistakes: [mistake] })
+      rows.push({ kind: 'issue', text: '', verdict: 'wrong', mistakes: [mistake] })
     }
   }
   return rows.map(({ key, ...row }) => row)

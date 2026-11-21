@@ -73,7 +73,7 @@ test('Check my work submits once, shows marks by the working and feedback in the
   expect(saveStudentResponse).toHaveBeenCalledWith('q1-a', 'x = 5', 0)
   expect(requestTutorReview).toHaveBeenCalledWith('q1-a', 1)
   expect(submitStudentResponse).not.toHaveBeenCalled()
-  expect(screen.getByText('Attempt 1 · Done without help · Your tutor has feedback')).toBeTruthy()
+  expect(screen.getByText('Attempt 1 · Independent')).toBeTruthy()
   const tutor = screen.getByRole('complementary', { name: 'Tutor' })
   expect(within(tutor).getByText('Look again at your second line.')).toBeTruthy()
   expect(within(tutor).getByText('Attempt 1 checked · 1 of 2')).toBeTruthy()
@@ -89,7 +89,7 @@ test('Check my work submits once, shows marks by the working and feedback in the
   expect(reading.getAttribute('aria-expanded')).toBe('true')
 })
 
-test('lost marks open how the work was marked, with the wrong line and its marks', async () => {
+test('lost marks open concise teacher-style marking with optional examiner details', async () => {
   getTutorReviews.mockResolvedValue([marked({
     what_i_read: 'x + 2 = 7\nx = 9',
     review: { points: [{ code: 'M1', value: 1, awarded: true }, { code: 'A1', value: 1, awarded: false }],
@@ -98,17 +98,38 @@ test('lost marks open how the work was marked, with the wrong line and its marks
   getStudentResponses.mockResolvedValue([{ question_part_id: 'q1-a', typed_work: 'x + 2 = 7\nx = 9', revision: 1, attachments: [], submitted: true }])
   workspace([question([{ id: 'q1-a', label: '(a)', marks: 2, prompt: [paragraph('Solve x + 2 = 7.')] }])])
 
-  const toggle = await screen.findByRole('button', { name: 'How it was marked' })
+  const toggle = await screen.findByRole('button', { name: 'Hide marking' })
   expect(toggle.getAttribute('aria-expanded')).toBe('true')
+  expect(screen.getByText('Attempt 1 · Independent · 1 step to review')).toBeTruthy()
+  const details = screen.getByText('Mark details').closest('details')
+  expect(details.open).toBe(false)
   const marks = screen.getByRole('list', { name: 'Marks earned and lost' })
   expect(within(marks).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['EarnedM1', 'LostA1'])
   const lines = within(screen.getByRole('list', { name: 'Your working, as it was read' })).getAllByRole('listitem')
   expect(lines[0].textContent).toBe('x + 2 = 7')
-  expect(lines[1].textContent).toBe('Marks lost herex = 9Calculation slipLost A1')
-  expect(screen.getByText('Your tutor can help you fix each marked step, one at a time.')).toBeTruthy()
+  expect(lines[1].textContent).toBe('Marks lost herex = 9Calculation slip')
+  expect(screen.getByText('Revise the × or ∧ step, then check your work again. Your tutor can give a hint without revealing the answer.')).toBeTruthy()
 
   fireEvent.click(toggle)
   expect(screen.queryByRole('list', { name: 'Your working, as it was read' })).toBeNull()
+})
+
+test('missing and unmatched issues never print a proposed correction', async () => {
+  getTutorReviews.mockResolvedValue([marked({
+    marks_awarded: 0,
+    what_i_read: 'x + 2 = 7',
+    review: { points: [{ code: 'M1', value: 1, awarded: false }], mistakes: [
+      { step: 'Missing step: x = 7 - 2', type: 'method', marks_lost: ['M1'] },
+      { step: 'x = 5', type: 'calculation', marks_lost: [] },
+    ] },
+  })])
+  getStudentResponses.mockResolvedValue([{ question_part_id: 'q1-a', typed_work: 'x + 2 = 7', revision: 1, attachments: [], submitted: true }])
+  workspace([question([{ id: 'q1-a', label: '(a)', marks: 2, prompt: [paragraph('Solve x + 2 = 7.')] }])])
+
+  expect(await screen.findByText('A required step is missing')).toBeTruthy()
+  expect(screen.getByText('A step needs attention')).toBeTruthy()
+  expect(screen.queryByText('x = 7 - 2')).toBeNull()
+  expect(screen.queryByText('x = 5')).toBeNull()
 })
 
 test('nested parts show their shared text once and only the open part has an answer box', async () => {

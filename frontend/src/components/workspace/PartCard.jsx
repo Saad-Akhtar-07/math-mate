@@ -170,16 +170,19 @@ function ResultStrip({ review, checking, error, assisted, onNext, nextLabel }) {
   const full = isFullMarks(review)
   const tone = full ? 'good' : review.marks_awarded > 0 ? 'part' : 'bad'
   const open = showMarking ?? Boolean(review.review && !full)
+  const issueCount = review.review?.mistakes?.length || 0
   const panelId = `${review.question_part_id}-marking`
   return <div className={`ws-result is-${tone}`}>
     <span className="ws-result-icon" aria-hidden="true">{full ? <Check size={18} strokeWidth={2.6} /> : <RotateCcw size={18} />}</span>
     <div>
       <strong>{review.marks_awarded} of {review.marks_maximum} marks</strong>
-      <span>Attempt {review.attempt_number} · {assisted ? 'With help' : 'Done without help'}{full ? '' : ' · Your tutor has feedback'}</span>
+      <span>Attempt {review.attempt_number} · {assisted ? 'With tutor help' : 'Independent'}{!full && issueCount ? ` · ${issueCount} ${issueCount === 1 ? 'step' : 'steps'} to review` : ''}</span>
     </div>
     <div className="ws-result-actions">
       {review.what_i_read && <button type="button" className="ws-small-button" aria-expanded={open} aria-controls={panelId} onClick={() => setShowMarking(!open)}>
-        {review.review ? <><ListChecks size={15} aria-hidden="true" />How it was marked</> : <><Eye size={15} aria-hidden="true" />What I read</>}
+        {review.review
+          ? <><ListChecks size={15} aria-hidden="true" />{open ? 'Hide marking' : 'Show marked work'}</>
+          : <><Eye size={15} aria-hidden="true" />{open ? 'Hide reading' : 'What I read'}</>}
       </button>}
       {full && onNext && <button type="button" className="ws-small-button is-primary" onClick={onNext}>{nextLabel}<ArrowRight size={15} aria-hidden="true" /></button>}
     </div>

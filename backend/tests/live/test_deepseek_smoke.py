@@ -28,12 +28,26 @@ pytestmark = [pytest.mark.live, pytest.mark.skipif(
     reason='Live AI gates need MATH_MATE_LIVE_AI_TEST=1, MATH_MATE_AI_PROVIDER=deepseek and owner approval')]
 
 WRONG = '5p + 8 x 75 = 910\n5p = 1510\np = 302'
+LARGE_WRONG = (
+    'Midpoint of AB = ((3 + -5)/2, (11 + -5)/2)\n'
+    'Midpoint of AB = (-1, 3)\n'
+    'Gradient of AB = (11 - -5)/(3 - -5) = 2\n'
+    'Gradient of L = 1/2\n'
+    'The midpoint is on L because 2(3) + (-1) = 5, so L is the perpendicular bisector.'
+)
 
 
 @pytest.fixture
 def context():
     question = json.loads((PROJECT_ROOT / 'data/topic-2-algebra-and-graphs/4024_s23_22_algebra_and_graphs.json').read_text(encoding='utf-8'))['questions'][0]
     return build_part_context(question, '4024-s23-22-q2-a')
+
+
+@pytest.fixture
+def large_context():
+    path = PROJECT_ROOT / 'data/topic-3-coordinate-geometry/4024_s23_12_coordinate_geometry.json'
+    question = json.loads(path.read_text(encoding='utf-8'))['questions'][0]
+    return build_part_context(question, f'{question["id"]}-main')
 
 
 def report(label, result):
@@ -85,3 +99,18 @@ def test_g3_observer_and_composer(context, ledger):
     print(f'[G3 composer] events={[kind for kind, _ in events][:3]} chars={sum(len(text or "") for _, text in events)}')
     assert [call['purpose'] for call in ledger.calls] == ['observer', 'composer']
     print(f'[G3] ledger={[(call["status"], str(call["cost"])) for call in ledger.calls]} model={ai_settings().model}')
+
+
+def test_g4_marker_five_line_work(large_context, ledger):
+    """Gate G4: one Marker request for a five-mark attempt; 512 tokens proved too short."""
+    request = LLMRequest('marker', marker.build_messages(large_context, LARGE_WRONG, []), 1024,
+                         prompt('marker').version, thinking=False)
+    result = gateway.call(request)
+    report('G4 marker five-line', result)
+    output = marker.parse(result.content)
+    mark_result, violations = validate(output, large_context)
+    safe_review = marker.student_review(large_context, mark_result) if mark_result else {'mistakes': []}
+    print(f'[G4 marker five-line] rule_violations={len(violations)} '
+          f'marks={mark_result.marks_awarded if mark_result else None}/5 '
+          f'read_lines={len(output.what_i_read.splitlines())} issues={len(safe_review["mistakes"])}')
+    assert len(ledger.calls) == 1

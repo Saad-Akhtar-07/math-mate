@@ -100,3 +100,16 @@ test('a Topic 1 Number diagram opens in the same practice workspace', async () =
   expect(document.querySelector('.standard-diagram svg')?.getAttribute('viewBox')).toBe('0 0 500 300')
   expect(document.querySelector('textarea')).toBeTruthy()
 })
+
+test('a Topic 3 coordinate graph opens in the practice workspace', async () => {
+  render(<MemoryRouter initialEntries={['/topic/3/practice?subtopic=3.1&question=4024-s25-13-t3-q6']}><Routes>
+    <Route path="/topic/:topicNumber/practice" element={<QuestionPracticePage />} />
+  </Routes></MemoryRouter>)
+
+  await waitFor(() => expect(document.querySelector('.ws-title')?.textContent).toBe('Plotting a point and finding equations of lines from a coordinate grid'))
+  expect(document.querySelector('a[href="/topic/3/3.1"]')?.textContent).toContain('3.1 Coordinates')
+  const graph = document.querySelector('.standard-graph svg')
+  expect(graph).toBeTruthy()
+  expect(graph.innerHTML).not.toContain('NaN')
+  expect([...graph.querySelectorAll('text')].map((label) => label.textContent)).toEqual(expect.arrayContaining(['A', 'B', 'C']))
+})
