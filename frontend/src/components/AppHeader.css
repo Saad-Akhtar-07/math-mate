@@ -1,0 +1,31 @@
+/* Top bar. Below 720px the navigation becomes a fixed tab bar at the bottom of the screen. */
+.tb { position: sticky; top: 0; z-index: 30; background: var(--surface); border-bottom: 1px solid var(--line); }
+.tb-inner { max-width: 1200px; min-height: 64px; margin: 0 auto; padding: 10px 32px; display: flex; align-items: center; gap: 28px; }
+.tb-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
+.tb-mark { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--brand); color: var(--on-brand); font-family: var(--font-display); font-size: 16px; font-weight: 700; }
+.tb-name { font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: -.015em; }
+.tb-nav { flex: 1 1 auto; display: flex; gap: 4px; }
+.tb-link { min-height: 44px; padding: 0 14px; border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 15px; font-weight: 700; }
+.tb-link:hover { background: var(--surface-2); color: var(--ink); }
+.tb-link.is-active { background: var(--brand-soft); color: var(--brand-on-soft); }
+.tb-actions { display: flex; align-items: center; gap: 10px; }
+.tb .theme-toggle { border-radius: var(--radius-md); }
+.tb-user { max-width: 230px; padding: 4px 12px 4px 4px; border: 1px solid var(--line); border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 14px; }
+.tb-user-icon { width: 32px; height: 32px; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); }
+.tb-user-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-signout { width: 42px; height: 42px; border: 1px solid var(--line); border-radius: var(--radius-md); display: grid; place-items: center; color: var(--ink-2); background: var(--surface); cursor: pointer; }
+.tb-signout:hover { color: var(--ink); background: var(--surface-2); }
+
+@media (max-width: 720px) {
+  .tb-inner { min-height: 56px; padding: 8px 16px; gap: 12px; justify-content: space-between; }
+  .tb-name { font-size: 18px; }
+  .tb-user { display: none; }
+  .tb-nav { position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; padding: 6px 8px calc(10px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; background: var(--surface); border-top: 1px solid var(--line); }
+  .tb-link { min-height: 52px; padding: 0; border-radius: 0; flex-direction: column; justify-content: center; gap: 3px; font-size: 12px; background: transparent; }
+  .tb-link svg { width: 56px; height: 30px; padding: 6px 0; border-radius: var(--radius-pill); }
+  .tb-link:hover { background: transparent; }
+  .tb-link.is-active { background: transparent; color: var(--brand); }
+  .tb-link.is-active svg { background: var(--brand-soft); color: var(--brand-on-soft); }
+  /* Keep page content clear of the tab bar. */
+  .app-shell.has-tab-bar { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+}

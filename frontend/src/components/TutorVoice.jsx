@@ -1,4 +1,4 @@
-import { Mic, Square, Volume2 } from 'lucide-react'
+import { LoaderCircle, Mic, Square, Volume2 } from 'lucide-react'
 import './TutorVoice.css'
 
 export function VoicePreferences({ speech }) {
@@ -26,18 +26,32 @@ export function ReadAloud({ speech, type, id, disabled }) {
   </div>
 }
 
-export function VoiceInput({ input, disabled, onUseDraft }) {
+const VOICE_PRIVACY = 'Audio goes to Groq for transcription. This app does not save recordings. Check your transcript before using it.'
+
+// The mic button that sits in the tutor composer.
+export function VoiceMicButton({ input, disabled }) {
+  const recording = input.state === 'recording'
+  const label = recording ? `Stop recording, ${input.seconds} of 30 seconds`
+    : input.state === 'transcribing' ? 'Transcribing your message'
+      : input.state === 'permission' ? 'Waiting for microphone permission' : 'Ask by voice'
+  return <button type="button" className={`voice-mic-button${recording ? ' is-recording' : ''}`}
+    disabled={!recording && (disabled || input.state !== 'idle')} onClick={recording ? input.stop : input.start}
+    aria-label={label} title={recording ? label : `${label}. ${VOICE_PRIVACY}`}>
+    {recording ? <><Square size={14} aria-hidden="true" /><span aria-hidden="true">{input.seconds}s</span></>
+      : input.state === 'idle' ? <Mic size={19} aria-hidden="true" /> : <LoaderCircle className="spin" size={18} aria-hidden="true" />}
+  </button>
+}
+
+// Recording status, errors and the editable transcript; shown only while voice input is in use.
+export function VoiceInputPanel({ input, disabled, onUseDraft }) {
   const busy = input.state !== 'idle'
+  if (!busy && !input.canRetry && !input.error && !input.draft) return null
   return <div className="tutor-voice-input">
-    <div className="voice-input-actions">
-      <button type="button" className={input.state === 'recording' ? 'is-recording' : ''} disabled={input.state !== 'recording' && (disabled || busy)} onClick={input.state === 'recording' ? input.stop : input.start}>
-        {input.state === 'recording' ? <Square size={15} /> : <Mic size={15} />}
-        {input.state === 'recording' ? `Stop · ${input.seconds}/30s` : input.state === 'transcribing' ? 'Transcribing…' : input.state === 'permission' ? 'Allow microphone…' : 'Ask by voice'}
-      </button>
-      {(busy || input.canRetry) && <button type="button" onClick={input.cancel}>Cancel</button>}
+    {(busy || input.canRetry) && <div className="voice-input-actions">
+      <span role="status">{input.state === 'recording' ? `Listening… ${input.seconds}/30s` : input.state === 'transcribing' ? 'Transcribing…' : input.state === 'permission' ? 'Allow the microphone to continue.' : 'Transcript ready'}</span>
+      <button type="button" onClick={input.cancel}>Cancel</button>
       {input.canRetry && !busy && <button type="button" disabled={disabled} onClick={input.retry}>Retry for accuracy</button>}
-    </div>
-    <details className="voice-input-info"><summary>English · 30s max · Voice info</summary><small>Audio goes to Groq for transcription. This app does not save recordings. Check your transcript before using it.</small></details>
+    </div>}
     {input.error && <p className="voice-notice" role="alert">{input.error}</p>}
     {input.draft && <div className="voice-draft">
       <label htmlFor="voice-transcript">Check your transcript</label>
@@ -45,5 +59,6 @@ export function VoiceInput({ input, disabled, onUseDraft }) {
       <p>{input.draft.warning} For “one over x plus two”, specify which terms are in the denominator.</p>
       <button type="button" disabled={disabled || busy || !input.draft.text.trim()} onClick={() => onUseDraft(input.draft.text)}>Use in message</button>
     </div>}
+    <details className="voice-input-info"><summary>English · 30s max · Voice info</summary><small>{VOICE_PRIVACY}</small></details>
   </div>
 }

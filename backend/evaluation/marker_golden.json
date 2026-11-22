@@ -1,0 +1,16 @@
+{
+  "version": "marker-golden-v0",
+  "review_status": "Draft. Synthetic attempts written for this project, with expected marks derived from the official mark points. A Mathematics teacher must review every expected mark before results are reported. Contains no real student work.",
+  "attempts": [
+    {"id": "q2a-full", "part_id": "4024-s23-22-q2-a", "typed_work": "5p + 8 x 75 = 910\n5p + 600 = 910\n5p = 310\np = 62", "expected_marks": 3, "expected_first_mistake": null},
+    {"id": "q2a-sign-error", "part_id": "4024-s23-22-q2-a", "typed_work": "5p + 8 x 75 = 910\n5p = 910 + 600\n5p = 1510\np = 302", "expected_marks": 1, "expected_first_mistake": "5p = 910 + 600"},
+    {"id": "q2a-no-equation", "part_id": "4024-s23-22-q2-a", "typed_work": "910 - 600 = 310\n310 / 5 = 62\np = 62", "expected_marks": 3, "expected_first_mistake": null},
+    {"id": "q2b-full", "part_id": "4024-s23-22-q2-b", "typed_work": "6ac - 27c = 3c(2a - 9)", "expected_marks": 2, "expected_first_mistake": null},
+    {"id": "q2b-not-fully", "part_id": "4024-s23-22-q2-b", "typed_work": "c(6a - 27)", "expected_marks": 1, "expected_first_mistake": "c(6a - 27)"},
+    {"id": "q2b-sign", "part_id": "4024-s23-22-q2-b", "typed_work": "3c(2a + 9)", "expected_marks": 0, "expected_first_mistake": "3c(2a + 9)"},
+    {"id": "q2c-full", "part_id": "4024-s23-22-q2-c", "typed_work": "15m^2n^2 / 90m = mn^2 / 6", "expected_marks": 2, "expected_first_mistake": null},
+    {"id": "q2c-unsimplified", "part_id": "4024-s23-22-q2-c", "typed_work": "15m^2n^2 / 90m", "expected_marks": 1, "expected_first_mistake": "15m^2n^2 / 90m"},
+    {"id": "q2d-full", "part_id": "4024-s23-22-q2-d", "typed_work": "5y = 3x^2\nx^2 = 5y/3\nx = ±sqrt(5y/3)", "expected_marks": 2, "expected_first_mistake": null},
+    {"id": "q2d-stops-early", "part_id": "4024-s23-22-q2-d", "typed_work": "5y = 3x^2\nx^2 = 5y/3", "expected_marks": 1, "expected_first_mistake": "x^2 = 5y/3"}
+  ]
+}

@@ -5,7 +5,6 @@ const REQUEST_TIMEOUT_MS = import.meta.env.PROD ? 90000 : 10000
 
 const questionBankCache = new Map()
 const questionSummaryCache = new Map()
-const notesCache = new Map()
 
 async function fetchContent(path) {
   const controller = new AbortController()
@@ -53,24 +52,18 @@ export function getQuestionSummary() {
 }
 
 export function preloadQuestionContent() {
-  // Topic 2 is the current question bank. Start its download alongside the
-  // summary, then pick up any topics added to the database later.
-  void getQuestionBank('2').catch(() => {})
+  // Fetch the tiny summary first, then warm one bank at a time. Navigation
+  // shares any in-flight request, while startup never floods the DB pool.
   void getQuestionSummary()
-    .then((summary) => {
-      for (const [topicCode, count] of Object.entries(summary?.topic_counts || {})) {
-        if (count > 0 && topicCode !== '2') void getQuestionBank(topicCode).catch(() => {})
+    .then(async (summary) => {
+      const counts = summary?.topic_counts || {}
+      const publishedFirst = ['1', '2']
+      const remaining = Object.keys(counts).filter((code) => !publishedFirst.includes(code))
+      for (const topicCode of [...publishedFirst, ...remaining]) {
+        if ((counts[topicCode] || 0) > 0) {
+          await getQuestionBank(topicCode).catch(() => null)
+        }
       }
     })
     .catch(() => {})
-}
-
-export async function getQuestionCount(topicNumber) {
-  const summary = await getQuestionSummary()
-  return summary.topic_counts[String(topicNumber)] || 0
-}
-
-export function getNotesForSubtopic(code) {
-  const key = String(code)
-  return cachedFetch(notesCache, key, `/subtopics/${encodeURIComponent(key)}/notes`)
 }

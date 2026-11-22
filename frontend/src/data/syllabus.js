@@ -1,5 +1,9 @@
 // Generated from the curriculum content supplied in the product brief.
 // Render curriculum wording from this source of truth.
+// Outcomes follow the official Cambridge 4024 syllabus for 2025-2027 (version 2): outcome N of
+// subtopic S has learning outcome code S.N, or S when the subtopic has one outcome, matching the curated data.
+// backend/app/tutoring/catalogue/outcomes.json is generated from these outcomes (backend.scripts.sync_outcomes).
+// Regenerating from the brief would overwrite this numbering.
 
 export const syllabus = [
   {
@@ -10,17 +14,7 @@ export const syllabus = [
         "code": "1.1",
         "title": "Types of number",
         "outcomes": [
-          "Identify and use:",
-          "natural numbers",
-          "integers, including positive numbers, zero and negative numbers",
-          "prime numbers",
-          "square numbers",
-          "cube numbers",
-          "common factors",
-          "common multiples",
-          "rational numbers",
-          "irrational numbers",
-          "reciprocals"
+          "Identify and use natural numbers, integers (positive, zero and negative), prime numbers, square numbers, cube numbers, common factors, common multiples, rational and irrational numbers, and reciprocals"
         ],
         "notes": [
           "Include situations such as:",
@@ -34,11 +28,7 @@ export const syllabus = [
         "code": "1.2",
         "title": "Sets",
         "outcomes": [
-          "Understand and use:",
-          "set language",
-          "set notation",
-          "Venn diagrams",
-          "relationships between sets"
+          "Understand and use set language, notation and Venn diagrams to describe sets and represent relationships between sets"
         ],
         "notes": [
           "Venn diagrams are limited to two or three sets.",
@@ -60,12 +50,7 @@ export const syllabus = [
         "code": "1.3",
         "title": "Powers and roots",
         "outcomes": [
-          "Calculate with:",
-          "squares",
-          "square roots",
-          "cubes",
-          "cube roots",
-          "other powers and roots of numbers"
+          "Calculate with squares, square roots, cubes, cube roots and other powers and roots of numbers"
         ],
         "notes": [
           "Candidates are expected to recall:",
@@ -77,13 +62,8 @@ export const syllabus = [
         "code": "1.4",
         "title": "Fractions, decimals and percentages",
         "outcomes": [
-          "Use the language and notation of:",
-          "proper fractions",
-          "improper fractions",
-          "mixed numbers",
-          "decimals",
-          "percentages",
-          "Recognise equivalence and convert between these forms."
+          "Use the language and notation of proper fractions, improper fractions, mixed numbers, decimals and percentages in appropriate contexts",
+          "Recognise equivalence and convert between these forms"
         ],
         "notes": [
           "fractions should be written in simplest form",
@@ -95,14 +75,7 @@ export const syllabus = [
         "code": "1.5",
         "title": "Ordering",
         "outcomes": [
-          "Order quantities by magnitude.",
-          "Understand and use:",
-          "=",
-          "≠",
-          ">",
-          "<",
-          "≥",
-          "≤"
+          "Order quantities by magnitude and demonstrate familiarity with the symbols =, ≠, >, <, ⩾ and ⩽"
         ],
         "notes": []
       },
@@ -110,11 +83,7 @@ export const syllabus = [
         "code": "1.6",
         "title": "The four operations",
         "outcomes": [
-          "Use the four operations with:",
-          "integers",
-          "fractions",
-          "decimals",
-          "Use the correct order of operations and brackets."
+          "Use the four operations for calculations with integers, fractions and decimals, including correct ordering of operations and use of brackets"
         ],
         "notes": [
           "Includes:",
@@ -128,12 +97,8 @@ export const syllabus = [
         "code": "1.7",
         "title": "Indices I",
         "outcomes": [
-          "Understand and use indices that are:",
-          "positive",
-          "zero",
-          "negative",
-          "fractional",
-          "Understand and apply the rules of indices."
+          "Understand and use indices (positive, zero, negative and fractional)",
+          "Understand and use the rules of indices"
         ],
         "notes": []
       },
@@ -141,15 +106,9 @@ export const syllabus = [
         "code": "1.8",
         "title": "Standard form",
         "outcomes": [
-          "Use standard form:",
-          "A × 10ⁿ",
-          "where:",
-          "1 ≤ A < 10",
-          "and n is a positive or negative integer.",
-          "Candidates should:",
-          "convert numbers into standard form",
-          "convert numbers out of standard form",
-          "calculate using values in standard form"
+          "Use the standard form A × 10ⁿ where n is a positive or negative integer and 1 ⩽ A < 10",
+          "Convert numbers into and out of standard form",
+          "Calculate with values in standard form"
         ],
         "notes": []
       },
@@ -157,9 +116,9 @@ export const syllabus = [
         "code": "1.9",
         "title": "Estimation",
         "outcomes": [
-          "round values to a specified degree of accuracy",
-          "make estimates involving numbers, quantities and measurements",
-          "round answers appropriately in context"
+          "Round values to a specified degree of accuracy",
+          "Make estimates for calculations involving numbers, quantities and measurements",
+          "Round answers to a reasonable degree of accuracy in the context of a given problem"
         ],
         "notes": [
           "Includes:",
@@ -171,8 +130,8 @@ export const syllabus = [
         "code": "1.10",
         "title": "Limits of accuracy",
         "outcomes": [
-          "give upper and lower bounds for rounded data",
-          "find upper and lower bounds for calculations involving rounded data"
+          "Give upper and lower bounds for data rounded to a specified accuracy",
+          "Find upper and lower bounds of the results of calculations which have used data rounded to a specified accuracy"
         ],
         "notes": [
           "Examples may involve:",
@@ -187,10 +146,7 @@ export const syllabus = [
         "code": "1.11",
         "title": "Ratio and proportion",
         "outcomes": [
-          "Understand and use ratio and proportion to:",
-          "express ratios in simplest form",
-          "divide quantities in a given ratio",
-          "use proportional reasoning in context"
+          "Understand and use ratio and proportion to give ratios in their simplest form, divide a quantity in a given ratio, and use proportional reasoning and ratios in context"
         ],
         "notes": [
           "Contexts may include:",
@@ -203,9 +159,9 @@ export const syllabus = [
         "code": "1.12",
         "title": "Rates",
         "outcomes": [
-          "use common measures of rate",
-          "apply other measures of rate",
-          "solve problems involving average speed"
+          "Use common measures of rate",
+          "Apply other measures of rate",
+          "Solve problems involving average speed"
         ],
         "notes": [
           "Examples may involve:",
@@ -224,11 +180,11 @@ export const syllabus = [
         "code": "1.13",
         "title": "Percentages",
         "outcomes": [
-          "calculate a percentage of a quantity",
-          "express one quantity as a percentage of another",
-          "calculate percentage increase and decrease",
-          "calculate with simple and compound interest",
-          "use reverse percentages"
+          "Calculate a given percentage of a quantity",
+          "Express one quantity as a percentage of another",
+          "Calculate percentage increase or decrease",
+          "Calculate with simple and compound interest",
+          "Calculate using reverse percentages"
         ],
         "notes": [
           "Problems may include repeated percentage change.",
@@ -246,9 +202,9 @@ export const syllabus = [
         "code": "1.14",
         "title": "Using a calculator",
         "outcomes": [
-          "use a calculator efficiently",
-          "enter values appropriately",
-          "interpret calculator displays appropriately"
+          "Use a calculator efficiently",
+          "Enter values appropriately on a calculator",
+          "Interpret the calculator display appropriately"
         ],
         "notes": [
           "Candidates should know:",
@@ -262,17 +218,9 @@ export const syllabus = [
         "code": "1.15",
         "title": "Time",
         "outcomes": [
-          "Calculate with:",
-          "seconds",
-          "minutes",
-          "hours",
-          "days",
-          "weeks",
-          "months",
-          "years",
-          "Also:",
-          "calculate using 12-hour and 24-hour clocks",
-          "read clocks and timetables"
+          "Calculate with time: seconds (s), minutes (min), hours (h), days, weeks, months, years, including the relationship between units",
+          "Calculate times in terms of the 24-hour and 12-hour clock",
+          "Read clocks and timetables"
         ],
         "notes": [
           "Includes:",
@@ -286,8 +234,8 @@ export const syllabus = [
         "code": "1.16",
         "title": "Money",
         "outcomes": [
-          "calculate with money",
-          "convert between currencies"
+          "Calculate with money",
+          "Convert from one currency to another"
         ],
         "notes": []
       },
@@ -295,7 +243,7 @@ export const syllabus = [
         "code": "1.17",
         "title": "Exponential growth and decay",
         "outcomes": [
-          "Use exponential growth and decay."
+          "Use exponential growth and decay"
         ],
         "notes": [
           "Contexts include:",
@@ -308,9 +256,8 @@ export const syllabus = [
         "code": "1.18",
         "title": "Surds",
         "outcomes": [
-          "understand and use surds",
-          "simplify expressions involving surds",
-          "rationalise denominators"
+          "Understand and use surds, including simplifying expressions",
+          "Rationalise the denominator"
         ],
         "notes": []
       }
@@ -324,8 +271,8 @@ export const syllabus = [
         "code": "2.1",
         "title": "Introduction to algebra",
         "outcomes": [
-          "understand that letters may represent generalised numbers",
-          "substitute numbers into expressions and formulas"
+          "Know that letters can be used to represent generalised numbers",
+          "Substitute numbers into expressions and formulas"
         ],
         "notes": []
       },
@@ -333,25 +280,24 @@ export const syllabus = [
         "code": "2.2",
         "title": "Algebraic manipulation",
         "outcomes": [
-          "simplify expressions by collecting like terms",
-          "expand products of algebraic expressions",
-          "factorise by extracting common factors",
-          "factorise specified algebraic forms",
-          "complete the square for expressions of the form ax² + bx + c"
+          "Simplify expressions by collecting like terms",
+          "Expand products of algebraic expressions",
+          "Factorise by extracting common factors",
+          "Factorise expressions of the form ax + bx + kay + kby, a²x² − b²y², a² + 2ab + b², ax² + bx + c and ax³ + bx² + cx",
+          "Complete the square for expressions in the form ax² + bx + c"
         ],
         "notes": [
-          "Includes:",
-          "products of more than two brackets",
-          "full factorisation",
-          "quadratic and higher-order expressions specified in the syllabus"
+          "Simplify means give the answer in its simplest form.",
+          "Includes products of more than two brackets.",
+          "Factorise means factorise fully."
         ]
       },
       {
         "code": "2.3",
         "title": "Algebraic fractions",
         "outcomes": [
-          "manipulate algebraic fractions",
-          "factorise and simplify rational expressions"
+          "Manipulate algebraic fractions",
+          "Factorise and simplify rational expressions"
         ],
         "notes": []
       },
@@ -359,8 +305,8 @@ export const syllabus = [
         "code": "2.4",
         "title": "Indices II",
         "outcomes": [
-          "understand and use positive, zero, negative and fractional indices",
-          "apply rules of indices"
+          "Understand and use indices (positive, zero, negative and fractional)",
+          "Understand and use the rules of indices"
         ],
         "notes": [
           "Includes solving equations involving indices.",
@@ -371,14 +317,12 @@ export const syllabus = [
         "code": "2.5",
         "title": "Equations",
         "outcomes": [
-          "construct expressions, equations and formulas",
-          "solve linear equations in one unknown",
-          "solve fractional equations with numerical and linear algebraic denominators",
-          "solve simultaneous linear equations in two unknowns",
-          "solve quadratic equations by factorisation",
-          "solve quadratic equations by completing the square",
-          "solve quadratic equations using the quadratic formula",
-          "change the subject of formulas"
+          "Construct expressions, equations and formulas",
+          "Solve linear equations in one unknown",
+          "Solve fractional equations with numerical and linear algebraic denominators",
+          "Solve simultaneous linear equations in two unknowns",
+          "Solve quadratic equations by factorisation, completing the square and by use of the quadratic formula",
+          "Change the subject of formulas"
         ],
         "notes": [
           "Includes:",
@@ -394,10 +338,10 @@ export const syllabus = [
         "code": "2.6",
         "title": "Inequalities",
         "outcomes": [
-          "represent and interpret inequalities on a number line",
-          "construct, solve and interpret linear inequalities",
-          "represent and interpret linear inequalities in two variables graphically",
-          "list inequalities defining a region"
+          "Represent and interpret inequalities, including on a number line",
+          "Construct, solve and interpret linear inequalities",
+          "Represent and interpret linear inequalities in two variables graphically",
+          "List inequalities that define a given region"
         ],
         "notes": [
           "Use:",
@@ -413,10 +357,9 @@ export const syllabus = [
         "code": "2.7",
         "title": "Sequences",
         "outcomes": [
-          "continue number sequences and patterns",
-          "recognise term-to-term rules",
-          "identify relationships between sequences",
-          "find and use nth terms"
+          "Continue a given number sequence or pattern",
+          "Recognise patterns in sequences, including the term-to-term rule, and relationships between different sequences",
+          "Find and use the nth term of sequences"
         ],
         "notes": [
           "Includes:",
@@ -431,7 +374,7 @@ export const syllabus = [
         "code": "2.8",
         "title": "Proportion",
         "outcomes": [
-          "Express direct and inverse proportion algebraically and use these forms to determine unknown quantities."
+          "Express direct and inverse proportion in algebraic terms and use this form of expression to find unknown quantities"
         ],
         "notes": [
           "Includes:",
@@ -447,15 +390,10 @@ export const syllabus = [
         "code": "2.9",
         "title": "Graphs in practical situations",
         "outcomes": [
-          "use and interpret practical graphs",
-          "interpret travel graphs",
-          "interpret conversion graphs",
-          "draw graphs from given data",
-          "apply rate of change to simple kinematics",
-          "work with distance–time graphs",
-          "work with speed–time graphs",
-          "understand acceleration and deceleration",
-          "calculate distance as area under a speed–time graph"
+          "Use and interpret graphs in practical situations including travel graphs and conversion graphs",
+          "Draw graphs from given data",
+          "Apply the idea of rate of change to simple kinematics involving distance–time and speed–time graphs, acceleration and deceleration",
+          "Calculate distance travelled as area under a speed–time graph"
         ],
         "notes": [
           "Includes:",
@@ -467,32 +405,21 @@ export const syllabus = [
         "code": "2.10",
         "title": "Graphs of functions",
         "outcomes": [
-          "construct tables of values",
-          "draw, recognise and interpret specified function graphs",
-          "solve related equations graphically",
-          "find and interpret roots graphically",
-          "draw and interpret exponential growth and decay graphs",
-          "estimate gradients of curves using tangents"
+          "Construct tables of values, and draw, recognise and interpret graphs for functions of the forms axⁿ (including sums of no more than three of these) and abˣ + c",
+          "Solve associated equations graphically, including finding and interpreting roots by graphical methods",
+          "Draw and interpret graphs representing exponential growth and decay problems",
+          "Estimate gradients of curves by drawing tangents"
         ],
         "notes": [
-          "The syllabus includes functions of forms based on:",
-          "axⁿ",
-          "sums of up to three such terms",
-          "abˣ + c",
-          "and the specified values of n given by Cambridge.",
-          "May include finding intersections between a line and a curve."
+          "n = −2, −1, −½, 0, ½, 1, 2, 3; a and c are rational numbers; and b is a positive integer.",
+          "May include finding the intersection of a line and a curve."
         ]
       },
       {
         "code": "2.11",
         "title": "Sketching curves",
         "outcomes": [
-          "Recognise, sketch and interpret:",
-          "linear graphs",
-          "quadratic graphs",
-          "cubic graphs",
-          "reciprocal graphs",
-          "exponential graphs"
+          "Recognise, sketch and interpret graphs of linear, quadratic, cubic, reciprocal and exponential functions"
         ],
         "notes": [
           "Knowledge is required of:",
@@ -508,11 +435,9 @@ export const syllabus = [
         "code": "2.12",
         "title": "Functions",
         "outcomes": [
-          "understand functions",
-          "understand domain and range",
-          "use function notation",
-          "find inverse functions",
-          "form composite functions using gf(x) = g(f(x))"
+          "Understand functions, domain and range, and use function notation",
+          "Understand and find inverse functions f⁻¹(x)",
+          "Form composite functions as defined by gf(x) = g(f(x))"
         ],
         "notes": [
           "mapping diagrams may be used",
@@ -529,7 +454,7 @@ export const syllabus = [
         "code": "3.1",
         "title": "Coordinates",
         "outcomes": [
-          "Use and interpret Cartesian coordinates in two dimensions."
+          "Use and interpret Cartesian coordinates in two dimensions"
         ],
         "notes": []
       },
@@ -537,7 +462,7 @@ export const syllabus = [
         "code": "3.2",
         "title": "Drawing linear graphs",
         "outcomes": [
-          "Draw straight-line graphs from linear equations."
+          "Draw straight-line graphs for linear equations"
         ],
         "notes": [
           "Equations may appear in several forms such as:",
@@ -549,8 +474,8 @@ export const syllabus = [
         "code": "3.3",
         "title": "Gradient of linear graphs",
         "outcomes": [
-          "find the gradient of a straight line",
-          "calculate gradient using coordinates of two points"
+          "Find the gradient of a straight line",
+          "Calculate the gradient of a straight line from the coordinates of two points on it"
         ],
         "notes": []
       },
@@ -558,8 +483,8 @@ export const syllabus = [
         "code": "3.4",
         "title": "Length and midpoint",
         "outcomes": [
-          "calculate the length of a line segment",
-          "find the midpoint of a line segment"
+          "Calculate the length of a line segment",
+          "Find the coordinates of the midpoint of a line segment"
         ],
         "notes": []
       },
@@ -567,7 +492,7 @@ export const syllabus = [
         "code": "3.5",
         "title": "Equations of linear graphs",
         "outcomes": [
-          "Interpret and obtain equations of straight-line graphs."
+          "Interpret and obtain the equation of a straight-line graph"
         ],
         "notes": [
           "Questions may require:",
@@ -582,9 +507,7 @@ export const syllabus = [
         "code": "3.6",
         "title": "Parallel lines",
         "outcomes": [
-          "Find:",
-          "gradients of parallel lines",
-          "equations of lines parallel to a given line"
+          "Find the gradient and equation of a straight line parallel to a given line"
         ],
         "notes": []
       },
@@ -592,10 +515,7 @@ export const syllabus = [
         "code": "3.7",
         "title": "Perpendicular lines",
         "outcomes": [
-          "Find:",
-          "gradients of perpendicular lines",
-          "equations of perpendicular lines",
-          "May include perpendicular bisectors."
+          "Find the gradient and equation of a straight line perpendicular to a given line"
         ],
         "notes": []
       }
@@ -609,24 +529,9 @@ export const syllabus = [
         "code": "4.1",
         "title": "Geometrical terms",
         "outcomes": [
-          "Use and interpret terminology relating to:",
-          "points",
-          "vertices",
-          "lines",
-          "planes",
-          "parallel and perpendicular lines",
-          "perpendicular bisectors",
-          "bearings",
-          "types of angles",
-          "similarity",
-          "congruence",
-          "scale factors",
-          "triangles",
-          "quadrilaterals",
-          "polygons",
-          "nets",
-          "solids",
-          "circles"
+          "Use and interpret the geometrical terms point, vertex, line, plane, parallel, perpendicular, perpendicular bisector, bearing, right angle, acute, obtuse and reflex angles, interior and exterior angles, similar, congruent and scale factor",
+          "Use and interpret the vocabulary of triangles, special quadrilaterals, polygons, nets and solids",
+          "Use and interpret the vocabulary of a circle"
         ],
         "notes": [
           "Includes terminology relating to:",
@@ -663,9 +568,9 @@ export const syllabus = [
         "code": "4.2",
         "title": "Geometrical constructions",
         "outcomes": [
-          "measure and draw lines and angles",
-          "construct a triangle from three side lengths using ruler and compasses",
-          "draw, use and interpret nets"
+          "Measure and draw lines and angles",
+          "Construct a triangle, given the lengths of all sides, using a ruler and pair of compasses only",
+          "Draw, use and interpret nets"
         ],
         "notes": [
           "rulers should be used for straight edges",
@@ -678,8 +583,8 @@ export const syllabus = [
         "code": "4.3",
         "title": "Scale drawings",
         "outcomes": [
-          "draw and interpret scale drawings",
-          "use and interpret three-figure bearings"
+          "Draw and interpret scale drawings",
+          "Use and interpret three-figure bearings"
         ],
         "notes": [
           "bearings are measured clockwise from north",
@@ -691,11 +596,9 @@ export const syllabus = [
         "code": "4.4",
         "title": "Similarity",
         "outcomes": [
-          "calculate lengths in similar shapes",
-          "use relationships between lengths and areas",
-          "use relationships among lengths, surface areas and volumes of similar solids",
-          "solve problems involving similarity",
-          "give simple explanations involving similarity"
+          "Calculate lengths of similar shapes",
+          "Use the relationships between lengths and areas of similar shapes and lengths, surface areas and volumes of similar solids",
+          "Solve problems and give simple explanations involving similarity"
         ],
         "notes": [
           "Includes:",
@@ -707,9 +610,8 @@ export const syllabus = [
         "code": "4.5",
         "title": "Symmetry",
         "outcomes": [
-          "recognise line symmetry",
-          "identify order of rotational symmetry in 2D",
-          "recognise symmetry properties of prisms, cylinders, pyramids and cones"
+          "Recognise line symmetry and order of rotational symmetry in two dimensions",
+          "Recognise symmetry properties of prisms, cylinders, pyramids and cones"
         ],
         "notes": [
           "May include:",
@@ -724,16 +626,9 @@ export const syllabus = [
         "code": "4.6",
         "title": "Angles",
         "outcomes": [
-          "Calculate unknown angles and give geometric reasons using:",
-          "angles around a point",
-          "angles on a straight line",
-          "vertically opposite angles",
-          "triangle angle sum",
-          "quadrilateral angle sum",
-          "corresponding angles",
-          "alternate angles",
-          "co-interior angles",
-          "angle properties of regular and irregular polygons"
+          "Calculate unknown angles and give simple explanations using angles at a point (360°), angles at a point on a straight line (180°), vertically opposite angles, and the angle sums of a triangle (180°) and a quadrilateral (360°)",
+          "Calculate unknown angles and give geometric explanations for angles formed within parallel lines: corresponding angles are equal, alternate angles are equal and co-interior angles sum to 180°",
+          "Know and use angle properties of regular and irregular polygons"
         ],
         "notes": [
           "Candidates should:",
@@ -746,14 +641,7 @@ export const syllabus = [
         "code": "4.7",
         "title": "Circle theorems I",
         "outcomes": [
-          "Use and explain:",
-          "angle in a semicircle",
-          "tangent-radius right angle",
-          "centre angle/circumference angle relationship",
-          "angles in the same segment",
-          "cyclic quadrilateral opposite angles",
-          "alternate segment theorem",
-          "Correct geometrical reasons are expected."
+          "Calculate unknown angles and give explanations using the angle in a semicircle, the angle between tangent and radius, the angle at the centre being twice the angle at the circumference, angles in the same segment, opposite angles of a cyclic quadrilateral and the alternate segment theorem"
         ],
         "notes": []
       },
@@ -761,11 +649,7 @@ export const syllabus = [
         "code": "4.8",
         "title": "Circle theorems II",
         "outcomes": [
-          "Use:",
-          "equal chords being equidistant from the centre",
-          "perpendicular bisector of a chord passing through the centre",
-          "equal tangents from an external point",
-          "Geometric reasoning is expected."
+          "Use the symmetry properties of circles: equal chords are equidistant from the centre, the perpendicular bisector of a chord passes through the centre, and tangents from an external point are equal in length"
         ],
         "notes": []
       }
@@ -779,12 +663,7 @@ export const syllabus = [
         "code": "5.1",
         "title": "Units of measure",
         "outcomes": [
-          "Use and convert metric units involving:",
-          "mass",
-          "length",
-          "area",
-          "volume",
-          "capacity"
+          "Use metric units of mass, length, area, volume and capacity in practical situations and convert quantities into larger or smaller units"
         ],
         "notes": [
           "Includes conversion between:",
@@ -801,12 +680,7 @@ export const syllabus = [
         "code": "5.2",
         "title": "Area and perimeter",
         "outcomes": [
-          "Calculate perimeter and area of:",
-          "rectangles",
-          "triangles",
-          "parallelograms",
-          "trapeziums",
-          "Except for the triangle-area formula, these formulas are not provided."
+          "Carry out calculations involving the perimeter and area of a rectangle, triangle, parallelogram and trapezium"
         ],
         "notes": []
       },
@@ -814,11 +688,8 @@ export const syllabus = [
         "code": "5.3",
         "title": "Circles, arcs and sectors",
         "outcomes": [
-          "Calculate:",
-          "circumference",
-          "circle area",
-          "arc length",
-          "sector area"
+          "Carry out calculations involving the circumference and area of a circle",
+          "Carry out calculations involving arc length and sector area as fractions of the circumference and area of a circle"
         ],
         "notes": [
           "may include minor and major sectors",
@@ -830,13 +701,7 @@ export const syllabus = [
         "code": "5.4",
         "title": "Surface area and volume",
         "outcomes": [
-          "Calculate and solve problems involving surface area and volume of:",
-          "cuboids",
-          "prisms",
-          "cylinders",
-          "spheres",
-          "pyramids",
-          "cones"
+          "Carry out calculations and solve problems involving the surface area and volume of a cuboid, prism, cylinder, sphere, pyramid and cone"
         ],
         "notes": [
           "answers may be required in terms of π",
@@ -848,13 +713,8 @@ export const syllabus = [
         "code": "5.5",
         "title": "Compound shapes and parts of shapes",
         "outcomes": [
-          "Calculate and solve problems involving:",
-          "perimeters of compound shapes",
-          "areas of compound shapes",
-          "parts of shapes",
-          "surface areas of compound solids",
-          "volumes of compound solids",
-          "parts of solids"
+          "Carry out calculations and solve problems involving perimeters and areas of compound shapes and parts of shapes",
+          "Carry out calculations and solve problems involving surface areas and volumes of compound solids and parts of solids"
         ],
         "notes": [
           "May include frustums.",
@@ -871,7 +731,7 @@ export const syllabus = [
         "code": "6.1",
         "title": "Pythagoras' theorem",
         "outcomes": [
-          "Know and use Pythagoras' theorem."
+          "Know and use Pythagoras' theorem"
         ],
         "notes": []
       },
@@ -879,13 +739,10 @@ export const syllabus = [
         "code": "6.2",
         "title": "Right-angled triangles",
         "outcomes": [
-          "use sine",
-          "use cosine",
-          "use tangent",
-          "calculate sides and angles in right-angled triangles",
-          "solve 2D problems using trigonometry and Pythagoras",
-          "understand perpendicular distance as the shortest distance from a point to a line",
-          "solve elevation and depression problems"
+          "Know and use the sine, cosine and tangent ratios for acute angles in calculations involving sides and angles of a right-angled triangle",
+          "Solve problems in two dimensions using Pythagoras' theorem and trigonometry",
+          "Know that the perpendicular distance from a point to a line is the shortest distance to the line",
+          "Carry out calculations involving angles of elevation and depression"
         ],
         "notes": [
           "angles are expressed in degrees",
@@ -897,10 +754,8 @@ export const syllabus = [
         "code": "6.3",
         "title": "Non-right-angled triangles",
         "outcomes": [
-          "use the sine rule",
-          "use the cosine rule",
-          "calculate lengths and angles",
-          "use the triangle-area formula involving sine"
+          "Use the sine and cosine rules in calculations involving lengths and angles for any triangle",
+          "Use the formula area of triangle = ½ab sin C"
         ],
         "notes": [
           "Includes:",
@@ -913,10 +768,7 @@ export const syllabus = [
         "code": "6.4",
         "title": "Pythagoras' theorem and trigonometry in 3D",
         "outcomes": [
-          "Solve three-dimensional problems using:",
-          "Pythagoras' theorem",
-          "trigonometry",
-          "Includes finding the angle between a line and a plane."
+          "Carry out calculations and solve problems in three dimensions using Pythagoras' theorem and trigonometry, including calculating the angle between a line and a plane"
         ],
         "notes": []
       }
@@ -930,11 +782,10 @@ export const syllabus = [
         "code": "7.1",
         "title": "Transformations",
         "outcomes": [
-          "Recognise, describe and draw:",
-          "reflections",
-          "rotations through multiples of 90°",
-          "enlargements",
-          "translations"
+          "Recognise, describe and draw the reflection of a shape in a straight line",
+          "Recognise, describe and draw the rotation of a shape about a centre through multiples of 90°",
+          "Recognise, describe and draw the enlargement of a shape from a centre by a scale factor",
+          "Recognise, describe and draw the translation of a shape by a vector"
         ],
         "notes": [
           "transformations may be combined",
@@ -946,10 +797,9 @@ export const syllabus = [
         "code": "7.2",
         "title": "Vectors in two dimensions",
         "outcomes": [
-          "describe translations using vectors",
-          "add vectors",
-          "subtract vectors",
-          "multiply vectors by scalars"
+          "Describe a translation using a column vector, a directed line segment such as AB, or a single letter such as a",
+          "Add and subtract vectors",
+          "Multiply a vector by a scalar"
         ],
         "notes": []
       },
@@ -957,8 +807,7 @@ export const syllabus = [
         "code": "7.3",
         "title": "Magnitude of a vector",
         "outcomes": [
-          "Calculate vector magnitude.",
-          "Use Cambridge vector-magnitude notation appropriately."
+          "Calculate the magnitude of a column vector (x, y) as √(x² + y²)"
         ],
         "notes": []
       },
@@ -966,10 +815,10 @@ export const syllabus = [
         "code": "7.4",
         "title": "Vector geometry",
         "outcomes": [
-          "represent vectors as directed line segments",
-          "use position vectors",
-          "express vectors using sums and differences of coplanar vectors",
-          "use vectors to reason about geometric problems"
+          "Represent vectors by directed line segments",
+          "Use position vectors",
+          "Use the sum and difference of two or more vectors to express given vectors in terms of two coplanar vectors",
+          "Use vectors to reason and to solve geometric problems"
         ],
         "notes": [
           "Includes using vectors to:",
@@ -989,10 +838,10 @@ export const syllabus = [
         "code": "8.1",
         "title": "Introduction to probability",
         "outcomes": [
-          "understand the probability scale from 0 to 1",
-          "use probability notation",
-          "calculate probability of a single event",
-          "understand complementary probability"
+          "Understand and use the probability scale from 0 to 1",
+          "Understand and use probability notation",
+          "Calculate the probability of a single event",
+          "Understand that the probability of an event not occurring = 1 – the probability of the event occurring"
         ],
         "notes": [
           "Use notation such as:",
@@ -1012,8 +861,8 @@ export const syllabus = [
         "code": "8.2",
         "title": "Relative and expected frequencies",
         "outcomes": [
-          "understand relative frequency as an estimate of probability",
-          "calculate expected frequencies"
+          "Understand relative frequency as an estimate of probability",
+          "Calculate expected frequencies"
         ],
         "notes": [
           "May use experimental results to estimate probability.",
@@ -1028,10 +877,7 @@ export const syllabus = [
         "code": "8.3",
         "title": "Probability of combined events",
         "outcomes": [
-          "Calculate probabilities of combined events using, where appropriate:",
-          "sample-space diagrams",
-          "Venn diagrams",
-          "tree diagrams"
+          "Calculate the probability of combined events using, where appropriate, sample space diagrams, Venn diagrams and tree diagrams"
         ],
         "notes": [
           "Events may involve:",
@@ -1055,7 +901,7 @@ export const syllabus = [
         "code": "9.1",
         "title": "Classifying statistical data",
         "outcomes": [
-          "Classify and tabulate statistical data."
+          "Classify and tabulate statistical data"
         ],
         "notes": [
           "May include:",
@@ -1067,12 +913,9 @@ export const syllabus = [
         "code": "9.2",
         "title": "Interpreting statistical data",
         "outcomes": [
-          "read tables and statistical diagrams",
-          "interpret data",
-          "draw inferences",
-          "compare data sets",
-          "use tables, graphs and statistical measures",
-          "understand limitations on conclusions that can be drawn"
+          "Read, interpret and draw inferences from tables and statistical diagrams",
+          "Compare sets of data using tables, graphs and statistical measures",
+          "Appreciate restrictions on drawing conclusions from given data"
         ],
         "notes": [
           "May include comparison using:",
@@ -1084,14 +927,9 @@ export const syllabus = [
         "code": "9.3",
         "title": "Averages and measures of spread",
         "outcomes": [
-          "calculate mean",
-          "calculate median",
-          "calculate mode",
-          "calculate range",
-          "distinguish appropriate purposes of these measures",
-          "estimate mean for grouped discrete data",
-          "estimate mean for grouped continuous data",
-          "identify modal class from grouped frequency distributions"
+          "Calculate the mean, median, mode and range for individual data and distinguish between the purposes for which these are used",
+          "Calculate an estimate of the mean for grouped discrete or grouped continuous data",
+          "Identify the modal class from a grouped frequency distribution"
         ],
         "notes": []
       },
@@ -1099,11 +937,7 @@ export const syllabus = [
         "code": "9.4",
         "title": "Statistical charts and diagrams",
         "outcomes": [
-          "Draw and interpret:",
-          "bar charts",
-          "pie charts",
-          "pictograms",
-          "simple frequency distributions"
+          "Draw and interpret bar charts, pie charts, pictograms and simple frequency distributions"
         ],
         "notes": [
           "Includes:",
@@ -1115,13 +949,9 @@ export const syllabus = [
         "code": "9.5",
         "title": "Scatter diagrams",
         "outcomes": [
-          "draw scatter diagrams",
-          "interpret scatter diagrams",
-          "identify positive correlation",
-          "identify negative correlation",
-          "identify zero correlation",
-          "draw a line of best fit by eye",
-          "interpret and use a line of best fit"
+          "Draw and interpret scatter diagrams",
+          "Understand what is meant by positive, negative and zero correlation",
+          "Draw by eye, interpret and use a straight line of best fit"
         ],
         "notes": [
           "Plotted points should be clearly marked.",
@@ -1135,13 +965,8 @@ export const syllabus = [
         "code": "9.6",
         "title": "Cumulative frequency diagrams",
         "outcomes": [
-          "draw cumulative frequency tables",
-          "draw cumulative frequency diagrams",
-          "interpret cumulative frequency diagrams",
-          "estimate median",
-          "estimate percentiles",
-          "estimate quartiles",
-          "estimate interquartile range"
+          "Draw and interpret cumulative frequency tables and diagrams",
+          "Estimate and interpret the median, percentiles, quartiles and interquartile range from cumulative frequency diagrams"
         ],
         "notes": [
           "Points should be clearly marked and joined with a smooth curve."
@@ -1151,9 +976,8 @@ export const syllabus = [
         "code": "9.7",
         "title": "Histograms",
         "outcomes": [
-          "draw histograms",
-          "interpret histograms",
-          "calculate with frequency density"
+          "Draw and interpret histograms",
+          "Calculate with frequency density"
         ],
         "notes": [
           "The vertical axis should be labelled:",

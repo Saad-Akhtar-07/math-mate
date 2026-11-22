@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Math Mate Backend Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;800&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* One reading column of plain component diagrams. Red = uses AI, green = remembers data. */
+:root {
+  --paper: #f3f5f8; --panel: #fbfcfd; --surface: #ffffff;
+  --ink: #18202c; --muted: #586274; --line: #dce1e9; --line-strong: #98a3b5; --wire: #4a5568;
+  --accent: #2747b0; --accent-soft: #e5eaf9;
+  --pen: #bf3a2e; --pen-soft: #fbeceb; --db: #1f7656; --db-soft: #e3f2ec;
+  --f-display: "Schibsted Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f131a; --panel: #151a23; --surface: #1b212c;
+    --ink: #e4e9f0; --muted: #9ba7b9; --line: #2a3240; --line-strong: #5d6a7d; --wire: #aab5c5;
+    --accent: #8ba4ff; --accent-soft: #1e2948;
+    --pen: #ff8b7f; --pen-soft: #3a1f21; --db: #62d0a1; --db-soft: #14302a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f131a; --panel: #151a23; --surface: #1b212c;
+  --ink: #e4e9f0; --muted: #9ba7b9; --line: #2a3240; --line-strong: #5d6a7d; --wire: #aab5c5;
+  --accent: #8ba4ff; --accent-soft: #1e2948;
+  --pen: #ff8b7f; --pen-soft: #3a1f21; --db: #62d0a1; --db-soft: #14302a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 17px/1.6 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 64px; }
+.wrap { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.15; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2rem, 4.4vw, 2.7rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 1.5rem; font-weight: 800; }
+h3 { font-size: 1.02rem; font-weight: 600; }
+p { margin: 0; }
+section { display: flex; flex-direction: column; gap: 16px; }
+.eyebrow { font: 700 0.75rem/1 var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+.lead { color: var(--muted); max-width: 66ch; }
+header { display: flex; flex-direction: column; gap: 14px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 0.92rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid; }
+.sw.ai { background: var(--pen-soft); border-color: var(--pen); }
+.sw.mem { background: var(--db-soft); border-color: var(--db); }
+.sw.plain { background: var(--surface); border-color: var(--line-strong); }
+
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.scroll { overflow-x: auto; }
+figcaption { color: var(--muted); font-size: 0.95rem; }
+.dg { display: block; width: 100%; min-width: 640px; height: auto; }
+.dg text { font-family: var(--f-body); font-size: 13px; fill: var(--muted); }
+.dg .t { font-family: var(--f-display); font-size: 15px; font-weight: 600; fill: var(--ink); }
+.dg .lab { font-size: 12.5px; font-weight: 600; fill: var(--wire); }
+.dg .lab.pen { fill: var(--pen); }
+.dg .box { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.3; }
+.dg .box.ai { fill: var(--pen-soft); stroke: var(--pen); }
+.dg .box.mem { fill: var(--db-soft); stroke: var(--db); }
+.dg .box.ghost { fill: none; stroke-dasharray: 6 5; }
+.dg .ln { fill: none; stroke: var(--wire); stroke-width: 1.5; }
+.dg .ln.pen { stroke: var(--pen); }
+.dg .ln.dash { stroke-dasharray: 6 5; }
+.dg .ah { fill: var(--wire); }
+.dg .ahp { fill: var(--pen); }
+.dg .step { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.2; }
+.dg .step.top { fill: var(--pen-soft); stroke: var(--pen); }
+.dg .new { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; fill: var(--accent); }
+
+.rules { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.two > * { min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+.card .tag { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.skill { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; font-size: 0.95rem; }
+.skill .meta { color: var(--muted); font-size: 0.88rem; text-align: right; }
+.bar { grid-column: 1 / -1; height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 99px; background: var(--db); }
+.bar.faint i { background: var(--line-strong); }
+.memnote { padding-top: 10px; border-top: 1px solid var(--line); font-size: 0.95rem; display: flex; flex-direction: column; gap: 4px; }
+.memnote b { font-weight: 600; }
+.changes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.changes li { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 4px 16px; }
+.changes time { color: var(--muted); font-weight: 600; font-size: 0.92rem; }
+footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--muted); font-size: 0.92rem; }
+@media (max-width: 600px) { .changes li { grid-template-columns: minmax(0, 1fr); } body { font-size: 16px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Math Mate · Backend</span>
+  <h1>Math Mate Backend Guide</h1>
+  <p class="lead">The backend's main parts and how they work together, one picture per topic.</p>
+  <div class="legend">
+    <span><i class="sw ai"></i>Uses AI</span>
+    <span><i class="sw mem"></i>Remembers data</span>
+    <span><i class="sw plain"></i>Plain rules, no AI</span>
+  </div>
+</header>
+
+<!-- 1. BIG PICTURE -->
+<section>
+  <span class="eyebrow">1 · Big picture</span>
+  <h2>The parts of the backend</h2>
+  <figure>
+    <div class="scroll">
+    <svg class="dg" viewBox="0 0 900 400" role="img" aria-label="The student app talks to the front door, which passes requests to the question bank, work saver, marker and tutor. The marker sends the mistakes list to the tutor and evidence to student memory; the tutor reads memory. Both AI parts go through the budget guard to DeepSeek. Photos go to photo storage.">
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
+        <marker id="a1p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ahp"/></marker>
+      </defs>
+      <rect class="box ghost" x="20" y="40" width="120" height="340" rx="10"/>
+      <text class="t" x="80" y="204" text-anchor="middle">Student</text>
+      <text class="t" x="80" y="222" text-anchor="middle">app</text>
+      <path class="ln" d="M142 210H178" marker-start="url(#a1)" marker-end="url(#a1)"/>
+      <rect class="box" x="180" y="40" width="130" height="340" rx="10"/>
+      <text class="t" x="245" y="184" text-anchor="middle">Supabase sign-in</text>
+      <text x="245" y="204" text-anchor="middle">verifies email,</text>
+      <text x="245" y="220" text-anchor="middle">then the front door</text>
+      <text x="245" y="236" text-anchor="middle">checks the account</text>
+
+      <rect class="box" x="360" y="40" width="170" height="60" rx="8"/>
+      <text class="t" x="445" y="66" text-anchor="middle">Question bank</text>
+      <text x="445" y="86" text-anchor="middle">kept ready for quick reuse</text>
+      <rect class="box" x="360" y="120" width="170" height="60" rx="8"/>
+      <text class="t" x="445" y="146" text-anchor="middle">Work saver</text>
+      <text x="445" y="166" text-anchor="middle">drafts and photos</text>
+      <rect class="box ai" x="360" y="200" width="170" height="60" rx="8"/>
+      <text class="t" x="445" y="226" text-anchor="middle">Marker</text>
+      <text x="445" y="246" text-anchor="middle">marks the work</text>
+      <rect class="box ai" x="360" y="320" width="170" height="60" rx="8"/>
+      <text class="t" x="445" y="346" text-anchor="middle">Tutor</text>
+      <text x="445" y="366" text-anchor="middle">helps fix mistakes</text>
+      <path class="ln" d="M310 70H358" marker-end="url(#a1)"/>
+      <path class="ln" d="M310 150H358" marker-end="url(#a1)"/>
+      <path class="ln" d="M310 230H358" marker-end="url(#a1)"/>
+      <path class="ln" d="M310 350H358" marker-end="url(#a1)"/>
+
+      <path class="ln" d="M445 260V318" marker-end="url(#a1)"/>
+      <text class="lab" x="453" y="294">mistakes list</text>
+
+      <rect class="box" x="600" y="120" width="140" height="60" rx="8"/>
+      <text class="t" x="670" y="146" text-anchor="middle">Photo storage</text>
+      <text x="670" y="166" text-anchor="middle">private</text>
+      <path class="ln" d="M530 150H598" marker-end="url(#a1)"/>
+
+      <rect class="box mem" x="600" y="250" width="140" height="60" rx="8"/>
+      <text class="t" x="670" y="276" text-anchor="middle">Student memory</text>
+      <text x="670" y="296" text-anchor="middle">skills + mistakes</text>
+      <path class="ln" d="M530 245L598 266" marker-end="url(#a1)"/>
+      <text class="lab" x="566" y="242" text-anchor="middle">evidence</text>
+      <path class="ln" d="M600 296L532 340" marker-end="url(#a1)"/>
+      <text class="lab" x="582" y="336">profile</text>
+
+      <rect class="box" x="770" y="190" width="110" height="60" rx="8"/>
+      <text class="t" x="825" y="216" text-anchor="middle">Budget guard</text>
+      <text x="825" y="236" text-anchor="middle">daily cost limit</text>
+      <path class="ln pen" d="M530 212H768" marker-end="url(#a1p)"/>
+      <text class="lab pen" x="650" y="206" text-anchor="middle">AI request</text>
+      <path class="ln pen" d="M530 365H825V252" marker-end="url(#a1p)"/>
+      <text class="lab pen" x="680" y="358" text-anchor="middle">AI request</text>
+      <rect class="box ai" x="770" y="80" width="110" height="56" rx="8"/>
+      <text class="t" x="825" y="104" text-anchor="middle">DeepSeek</text>
+      <text x="825" y="123" text-anchor="middle">AI model</text>
+      <path class="ln pen" d="M825 190V138" marker-end="url(#a1p)"/>
+      <text class="lab pen" x="833" y="168">1 call</text>
+    </svg>
+    </div>
+    <figcaption>Students verify their email and sign in through Supabase before the backend accepts private work. Everything is saved in the one Supabase database. Only the Marker and the Tutor use AI, and both have to pass the budget guard first.</figcaption>
+  </figure>
+</section>
+
+<!-- 2. CHECK MY WORK -->
+<section>
+  <span class="eyebrow">2 · Marking</span>
+  <h2>What happens on "Check my work"</h2>
+  <figure>
+    <div class="scroll">
+    <svg class="dg" viewBox="0 0 880 300" role="img" aria-label="Check my work freezes the work, the AI Marker reads it against the mark scheme, the mark checker counts the marks, then results go three ways: to the student, to the tutor as a mistakes list, and to student memory as evidence.">
+      <defs>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
+      </defs>
+      <rect class="box ghost" x="20" y="30" width="180" height="70" rx="8"/>
+      <text class="t" x="110" y="60" text-anchor="middle">Check my work</text>
+      <text x="110" y="80" text-anchor="middle">student presses the button</text>
+      <rect class="box" x="240" y="30" width="180" height="70" rx="8"/>
+      <text class="t" x="330" y="60" text-anchor="middle">Freeze the work</text>
+      <text x="330" y="80" text-anchor="middle">a fixed copy of this attempt</text>
+      <rect class="box ai" x="460" y="30" width="180" height="70" rx="8"/>
+      <text class="t" x="550" y="56" text-anchor="middle">Marker</text>
+      <text x="550" y="74" text-anchor="middle">reads typed work + photos</text>
+      <text x="550" y="90" text-anchor="middle">against the mark scheme</text>
+      <rect class="box" x="680" y="30" width="180" height="70" rx="8"/>
+      <text class="t" x="770" y="56" text-anchor="middle">Mark checker</text>
+      <text x="770" y="74" text-anchor="middle">counts the marks</text>
+      <text x="770" y="90" text-anchor="middle">fixed rules, no AI</text>
+      <path class="ln" d="M200 65H238" marker-end="url(#a2)"/>
+      <path class="ln" d="M420 65H458" marker-end="url(#a2)"/>
+      <path class="ln" d="M640 65H678" marker-end="url(#a2)"/>
+
+      <path class="ln" d="M770 100V150H160"/>
+      <path class="ln" d="M160 150V198" marker-end="url(#a2)"/>
+      <path class="ln" d="M440 150V198" marker-end="url(#a2)"/>
+      <path class="ln" d="M720 150V198" marker-end="url(#a2)"/>
+
+      <rect class="box" x="40" y="200" width="240" height="90" rx="8"/>
+      <text class="t" x="160" y="226" text-anchor="middle">Student sees</text>
+      <text x="160" y="246" text-anchor="middle">marks and short feedback</text>
+      <text x="160" y="263" text-anchor="middle">how each line was marked</text>
+      <text x="160" y="280" text-anchor="middle">(the answer stays hidden)</text>
+      <rect class="box ai" x="320" y="200" width="240" height="90" rx="8"/>
+      <text class="t" x="440" y="232" text-anchor="middle">Tutor gets</text>
+      <text x="440" y="254" text-anchor="middle">the list of mistakes,</text>
+      <text x="440" y="271" text-anchor="middle">to fix one at a time</text>
+      <rect class="box mem" x="600" y="200" width="240" height="90" rx="8"/>
+      <text class="t" x="720" y="232" text-anchor="middle">Student memory gets</text>
+      <text x="720" y="254" text-anchor="middle">new evidence for each skill</text>
+      <text x="720" y="271" text-anchor="middle">in this question</text>
+    </svg>
+    </div>
+    <figcaption>One AI call per check. The AI only says which marks it would give; plain rules check that against the mark scheme and add up the total. If its answer breaks the rules, it gets one chance to fix it. Only Check my work earns marks; the tutor never gives marks.</figcaption>
+  </figure>
+</section>
+
+<!-- 3. TUTOR -->
+<section>
+  <span class="eyebrow">3 · Tutoring</span>
+  <h2>How the tutor decides what to say</h2>
+  <p class="lead">Every message runs the same four steps. The AI listens and writes, but plain rules decide how much help to give, so the tutor can't just hand over the answer.</p>
+  <figure>
+    <div class="scroll">
+    <svg class="dg" viewBox="0 0 910 330" role="img" aria-label="Student message goes to the Listener (AI), then the Decider (rules), then the Writer (AI), then the Answer guard, and the reply streams back. Help buttons skip the Listener. The Decider uses the current mistake, the help given so far and student memory, and picks a level on the help ladder from guiding question to full solution.">
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
+      </defs>
+      <path class="ln" d="M815 40V20H95V38" marker-end="url(#a3)"/>
+      <text class="lab" x="455" y="14" text-anchor="middle">the reply streams back to the student</text>
+
+      <rect class="box ghost" x="20" y="40" width="150" height="72" rx="8"/>
+      <text class="t" x="95" y="66" text-anchor="middle">Student</text>
+      <text x="95" y="84" text-anchor="middle">types a message</text>
+      <text x="95" y="100" text-anchor="middle">or taps a help button</text>
+      <rect class="box ai" x="200" y="40" width="150" height="72" rx="8"/>
+      <text class="t" x="275" y="66" text-anchor="middle">Listener</text>
+      <text x="275" y="84" text-anchor="middle">what did they mean?</text>
+      <text x="275" y="100" text-anchor="middle">is their step right?</text>
+      <rect class="box" x="380" y="40" width="150" height="72" rx="8"/>
+      <text class="t" x="455" y="66" text-anchor="middle">Decider</text>
+      <text x="455" y="84" text-anchor="middle">which help, how much</text>
+      <text x="455" y="100" text-anchor="middle">fixed rules, no AI</text>
+      <rect class="box ai" x="560" y="40" width="150" height="72" rx="8"/>
+      <text class="t" x="635" y="66" text-anchor="middle">Writer</text>
+      <text x="635" y="84" text-anchor="middle">writes the reply</text>
+      <text x="635" y="100" text-anchor="middle">in that teaching style</text>
+      <rect class="box" x="740" y="40" width="150" height="72" rx="8"/>
+      <text class="t" x="815" y="66" text-anchor="middle">Answer guard</text>
+      <text x="815" y="84" text-anchor="middle">checks each sentence</text>
+      <text x="815" y="100" text-anchor="middle">keeps the answer hidden</text>
+      <path class="ln" d="M170 76H198" marker-end="url(#a3)"/>
+      <path class="ln" d="M350 76H378" marker-end="url(#a3)"/>
+      <path class="ln" d="M530 76H558" marker-end="url(#a3)"/>
+      <path class="ln" d="M710 76H738" marker-end="url(#a3)"/>
+      <path class="ln dash" d="M95 112V140H420V114" marker-end="url(#a3)"/>
+      <text class="lab" x="258" y="134" text-anchor="middle">help buttons skip the Listener</text>
+
+      <rect class="box" x="200" y="176" width="170" height="50" rx="8"/>
+      <text class="t" x="285" y="197" text-anchor="middle">Current mistake</text>
+      <text x="285" y="215" text-anchor="middle">from the marking</text>
+      <rect class="box" x="390" y="176" width="150" height="50" rx="8"/>
+      <text class="t" x="465" y="197" text-anchor="middle">Help so far</text>
+      <text x="465" y="215" text-anchor="middle">level, stuck turns</text>
+      <rect class="box mem" x="560" y="176" width="170" height="50" rx="8"/>
+      <text class="t" x="645" y="197" text-anchor="middle">Student memory</text>
+      <text x="645" y="215" text-anchor="middle">strong or weak here?</text>
+      <path class="ln" d="M300 176L440 116" marker-end="url(#a3)"/>
+      <path class="ln" d="M465 176V116" marker-end="url(#a3)"/>
+      <path class="ln" d="M630 176L490 116" marker-end="url(#a3)"/>
+
+      <text class="t" x="20" y="252">The Decider picks a level on the help ladder</text>
+      <rect class="step" x="20" y="286" width="170" height="30" rx="4"/>
+      <text x="32" y="306" class="lab">1 · Guiding question</text>
+      <rect class="step" x="194" y="280" width="170" height="36" rx="4"/>
+      <text x="206" y="306" class="lab">2 · Small hint</text>
+      <rect class="step" x="368" y="274" width="170" height="42" rx="4"/>
+      <text x="380" y="306" class="lab">3 · Explain or example</text>
+      <rect class="step" x="542" y="268" width="170" height="48" rx="4"/>
+      <text x="554" y="306" class="lab">4 · Show one step</text>
+      <rect class="step top" x="716" y="262" width="170" height="54" rx="4"/>
+      <text x="728" y="306" class="lab pen">5 · Full solution</text>
+    </svg>
+    </div>
+    <figcaption>Help usually starts at level 2, or lower or higher depending on student memory. Each reply without progress moves one level up, and two if the student sounds frustrated. When a step is fixed, the tutor moves to the next mistake and starts low again. The full solution comes only after 15 messages, or when the student keeps asking for the answer after level 4. Below level 4 the Writer is never even shown the answer.</figcaption>
+  </figure>
+</section>
+
+<!-- 4. MEMORY -->
+<section>
+  <span class="eyebrow">4 · Student memory</span>
+  <h2>What the backend remembers about a student</h2>
+  <figure>
+    <div class="scroll">
+    <svg class="dg" viewBox="0 0 900 210" role="img" aria-label="Student memory is updated when Check my work is marked (adds evidence) and when a part is solved with full marks (marks mistakes as fixed). The tutor reads it at every message without changing it. The marker never uses it.">
+      <defs>
+        <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
+      </defs>
+      <rect class="box" x="20" y="20" width="230" height="60" rx="8"/>
+      <text class="t" x="135" y="46" text-anchor="middle">A check is marked</text>
+      <text x="135" y="66" text-anchor="middle">after every attempt</text>
+      <rect class="box" x="20" y="130" width="230" height="60" rx="8"/>
+      <text class="t" x="135" y="156" text-anchor="middle">A part is finally solved</text>
+      <text x="135" y="176" text-anchor="middle">full marks after tutoring</text>
+      <rect class="box mem" x="340" y="65" width="220" height="80" rx="10"/>
+      <text class="t" x="450" y="98" text-anchor="middle">Student memory</text>
+      <text x="450" y="118" text-anchor="middle">skills, repeated mistakes,</text>
+      <text x="450" y="134" text-anchor="middle">help usually needed</text>
+      <rect class="box ai" x="650" y="20" width="230" height="60" rx="8"/>
+      <text class="t" x="765" y="46" text-anchor="middle">Tutor</text>
+      <text x="765" y="66" text-anchor="middle">at every message</text>
+      <rect class="box ghost" x="650" y="130" width="230" height="60" rx="8"/>
+      <text class="t" x="765" y="156" text-anchor="middle">Marker</text>
+      <text x="765" y="176" text-anchor="middle">marks only the work itself</text>
+      <path class="ln" d="M250 50L338 86" marker-end="url(#a4)"/>
+      <text class="lab" x="282" y="52">adds evidence</text>
+      <path class="ln" d="M250 160L338 126" marker-end="url(#a4)"/>
+      <text class="lab" x="262" y="172">mistakes fixed, help used</text>
+      <path class="ln" d="M560 86L648 50" marker-end="url(#a4)"/>
+      <text class="lab" x="608" y="56" text-anchor="middle">reads it</text>
+      <path class="ln pen dash" d="M560 126L648 160"/>
+      <text class="lab pen" x="604" y="172" text-anchor="middle">never reads it</text>
+    </svg>
+    </div>
+    <figcaption>Memory changes at only two moments: when a check is marked, and when a part is finally solved, which records the mistakes as fixed and how much help was needed. Chatting with the tutor adds no evidence; the tutor only reads memory.</figcaption>
+  </figure>
+  <div class="two">
+    <div class="card">
+      <span class="tag">Example: one student's memory</span>
+      <div class="skill"><span>Solving linear equations</span><span class="meta">72% · strong · 5 attempts</span><div class="bar"><i style="width:72%"></i></div></div>
+      <div class="skill"><span>Expanding brackets</span><span class="meta">41% · weak · 3 attempts</span><div class="bar"><i style="width:41%"></i></div></div>
+      <div class="skill"><span>Factorising</span><span class="meta">not enough practice yet</span><div class="bar faint"><i style="width:50%"></i></div></div>
+      <div class="memnote">
+        <span><b>Repeated mistake:</b> changes the side of a term without changing its sign (seen 3 times)</span>
+        <span><b>Help usually needed:</b> up to level 2 of 5 on recent questions</span>
+      </div>
+    </div>
+    <div class="card">
+      <span class="tag">How the numbers work</span>
+      <ul class="rules">
+        <li>Each marked check adds evidence to every skill in that question.</li>
+        <li>Work done alone counts fully. Work done after hints counts half, and after a full solution a quarter.</li>
+        <li>Old evidence slowly fades, losing half its weight every 30 days.</li>
+        <li>With only a few attempts, a skill stays near the student's average for that topic and is marked as unsure.</li>
+        <li>The tutor gets a 4-line summary like the card on the left. It uses it to choose where help starts and how to word it.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 5. COST -->
+<section>
+  <span class="eyebrow">5 · AI cost</span>
+  <h2>How AI spending is kept in check</h2>
+  <figure>
+    <div class="scroll">
+    <svg class="dg" viewBox="0 0 880 190" role="img" aria-label="Before any AI call the budget guard checks today's spending. Over the limit, the call stops and the tutor rests. Otherwise one call goes to DeepSeek and the real cost is recorded.">
+      <defs>
+        <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
+        <marker id="a5p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ahp"/></marker>
+      </defs>
+      <rect class="box ai" x="20" y="40" width="190" height="60" rx="8"/>
+      <text class="t" x="115" y="66" text-anchor="middle">Marker or Tutor</text>
+      <text x="115" y="86" text-anchor="middle">needs an AI answer</text>
+      <rect class="box" x="250" y="40" width="170" height="60" rx="8"/>
+      <text class="t" x="335" y="66" text-anchor="middle">Budget guard</text>
+      <text x="335" y="86" text-anchor="middle">under today's limit?</text>
+      <rect class="box ai" x="460" y="40" width="170" height="60" rx="8"/>
+      <text class="t" x="545" y="66" text-anchor="middle">DeepSeek</text>
+      <text x="545" y="86" text-anchor="middle">one call, no retries</text>
+      <rect class="box mem" x="670" y="40" width="190" height="60" rx="8"/>
+      <text class="t" x="765" y="66" text-anchor="middle">Cost recorded</text>
+      <text x="765" y="86" text-anchor="middle">adds to today's total</text>
+      <rect class="box" x="250" y="130" width="170" height="50" rx="8"/>
+      <text class="t" x="335" y="152" text-anchor="middle">Stop</text>
+      <text x="335" y="170" text-anchor="middle">"the tutor is resting"</text>
+      <path class="ln" d="M210 70H248" marker-end="url(#a5)"/>
+      <path class="ln pen" d="M420 70H458" marker-end="url(#a5p)"/>
+      <text class="lab pen" x="439" y="62" text-anchor="middle">yes</text>
+      <path class="ln" d="M630 70H668" marker-end="url(#a5)"/>
+      <path class="ln" d="M335 100V128" marker-end="url(#a5)"/>
+      <text class="lab" x="343" y="119">no</text>
+    </svg>
+    </div>
+    <figcaption>Limits: $0.50 a day in total and $0.05 a day per student. In development and tests a free fake AI stands in for DeepSeek, so building features costs nothing.</figcaption>
+  </figure>
+</section>
+
+<!-- CHANGES -->
+<section>
+  <span class="eyebrow">What changed</span>
+  <h2>Backend updates</h2>
+  <ol class="changes">
+    <li><time datetime="2026-11-19">19 Nov 2026</time><div><h3>Question pages open faster</h3>
+      <p>The app asks for the small catalogue first, warms one question bank at a time, and briefly keeps public question content ready so students do not repeat the same database wait.</p></div></li>
+    <li><time datetime="2026-11-18">18 Nov 2026</time><div><h3>Real accounts replace browser guests</h3>
+      <p>Supabase now verifies each student's email and sign-in. The backend checks that account on every private request, and all saved work and student memory belong to that user.</p></div></li>
+    <li><time datetime="2026-10-20">20 Oct 2026</time><div><h3>"How it was marked" after each check</h3>
+      <p>The student now sees which marks they earned and lost, and which lines lost them (diagram 2). It is built from the Marker's existing answer, so it costs no extra AI.</p></div></li>
+    <li><time datetime="2026-10-20">20 Oct 2026</time><div><h3>Guide started</h3>
+      <p>Covers the backend as it is now: marking, tutoring, student memory and the cost guard.</p></div></li>
+  </ol>
+</section>
+
+<footer>Keep this page in step with the backend. After each feature, update the diagram it changes and add a line to "What changed".</footer>
+
+</div>
+</body>
+</html>

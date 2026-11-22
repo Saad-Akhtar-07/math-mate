@@ -1,0 +1,50 @@
+/* Home: continue, suggestions and topic progress. */
+.hm-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; }
+.hm-main { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 40px; }
+.hm-side { flex: 1 1 300px; min-width: 0; }
+
+.hm-continue { padding: 28px 30px; border: 1px solid var(--line); border-radius: var(--radius-xl); display: flex; flex-direction: column; gap: 20px; background: var(--surface); box-shadow: var(--shadow); }
+.hm-continue-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.hm-kicker { color: var(--brand); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.hm-when { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: 14px; }
+.hm-continue-text { display: flex; flex-direction: column; gap: 8px; }
+.hm-continue-text h2 { margin: 0; font-size: 27px; font-weight: 700; line-height: 1.2; text-wrap: pretty; }
+.hm-continue-text p { margin: 0; color: var(--ink-2); font-size: 15px; }
+.hm-parts { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 10px; }
+.hm-parts .db-chip { padding: 8px 14px; font-size: 14px; }
+.hm-continue-button { align-self: flex-start; }
+
+.hm-suggestions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 16px; }
+.hm-suggestion { min-height: 230px; padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 12px; background: var(--surface); color: var(--ink); }
+.hm-suggestion:hover { border-color: var(--line-strong); }
+.hm-suggestion h3 { margin: 0; font-family: var(--font-display); font-size: 19px; font-weight: 700; line-height: 1.25; }
+.hm-suggestion p { flex: 1 1 auto; margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.5; }
+.hm-suggestion-foot { padding-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 13px; }
+.hm-suggestion-action { color: var(--brand); font-size: 14px; font-weight: 700; }
+
+.hm-topic { display: flex; flex-direction: column; gap: 22px; }
+.hm-topic h2 { font-size: 20px; }
+.hm-stat { display: flex; flex-direction: column; gap: 8px; }
+.hm-stat-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 15px; }
+.hm-stat-row > span { color: var(--ink-2); }
+.hm-stat .db-bar { flex: none; }
+.hm-week { padding-top: 20px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; }
+.hm-week .hm-stat-row > span { color: var(--ink-3); font-size: 14px; }
+.hm-week ol { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.hm-week li { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--ink-3); font-size: 12px; }
+.hm-week li.is-today { color: var(--ink); font-weight: 700; }
+.hm-day { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); }
+.hm-day.is-on { background: var(--brand); color: var(--on-brand); }
+.hm-week li.is-today .hm-day:not(.is-on) { border: 2px dashed var(--brand); background: transparent; }
+
+.hm-skeleton-tall { height: 260px; }
+.hm-skeleton { height: 240px; }
+.hm-skeleton-side { flex: 1 1 300px; height: 420px; }
+
+@media (max-width: 720px) {
+  .hm-continue { padding: 20px; }
+  .hm-continue-text h2 { font-size: 22px; }
+  .hm-continue-button { align-self: stretch; }
+  .hm-main { gap: 28px; }
+  .hm-suggestion { min-height: 0; }
+}

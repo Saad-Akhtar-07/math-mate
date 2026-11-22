@@ -2,7 +2,7 @@ import { syllabus } from './syllabus.js'
 
 // Source-data adapter retained for question-rendering tests.
 // The running app fetches its question bank from the backend API instead.
-const papers = import.meta.glob('../../../data/*.json', { eager: true, import: 'default' })
+const papers = import.meta.glob('../../../data/**/*.json', { eager: true, import: 'default' })
 
 function firstLeaf(part) {
   return part?.parts?.length ? firstLeaf(part.parts[0]) : part
@@ -93,8 +93,4 @@ export function getPaperCounts(topicNumber) {
   const questions = getTopicQuestions(topicNumber)
   const calculator = questions.filter((question) => question.paper.calculatorAllowed).length
   return { total: questions.length, calculator, nonCalculator: questions.length - calculator }
-}
-
-export function getFirstAvailableTopic() {
-  return syllabus.find((topic) => getTopicQuestions(topic.number).length > 0)
 }

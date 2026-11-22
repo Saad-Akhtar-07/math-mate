@@ -2,7 +2,13 @@
 // renderer so malformed visual records fail visibly instead of crashing it.
 export function validateStandardBlock(block) {
   if (!block || typeof block !== 'object') return ['Missing block']
-  if (block.type === 'diagram' && (!Array.isArray(block.view_box) || !Array.isArray(block.elements))) return ['Invalid diagram']
+  if (block.type === 'diagram') {
+    const box = block.view_box
+    const validBox = Array.isArray(box) && [2, 4].includes(box.length)
+      && box.every((value) => typeof value === 'number' && Number.isFinite(value))
+      && box.at(-2) > 0 && box.at(-1) > 0
+    if (!validBox || !Array.isArray(block.elements)) return ['Invalid diagram']
+  }
   if (block.type === 'graph') {
     const validRange = (range) => Array.isArray(range) && range.length === 2 && range.every((value) => typeof value === 'number' && Number.isFinite(value)) && range[1] > range[0]
     if (!validRange(block.x_axis?.range) || !validRange(block.y_axis?.range)) return ['Invalid graph axes']

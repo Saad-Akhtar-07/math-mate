@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
 import { getQuestionBank, getQuestionSummary } from '../api/content.js'
+import { syllabus } from '../data/syllabus.js'
+
+/** Syllabus topics with their question counts, and the first topic that has questions. */
+export function useAvailableTopics() {
+  const { summary, loading, error } = useQuestionSummary()
+  const counts = summary?.topic_counts || {}
+  const topics = syllabus.map((topic) => ({ topic, count: counts[topic.number] || 0 }))
+  return { topics, firstTopic: topics.find((item) => item.count > 0)?.topic || null, subtopicCounts: summary?.subtopic_counts || {}, loading, error }
+}
 
 export function useQuestionSummary() {
   const [state, setState] = useState({ summary: null, loading: true, error: '' })

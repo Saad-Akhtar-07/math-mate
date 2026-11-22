@@ -1,154 +1,25 @@
 /* Product presentation layered over the existing practice workspace. */
-:root {
-  --background: #f7f9f7;
-  --surface-subtle: #f0f4f1;
-  --primary: #183d36;
-  --accent: #087e6d;
-  --accent-soft: #e3f3ec;
-  --border: #dce7e0;
-  --text-primary: #203a32;
-  --text-secondary: #53675d;
-  --text-tertiary: #718077;
-  --diagram-ink: #24372f;
-  --diagram-muted: #87978d;
-  --diagram-grid: #d9e6dd;
-  --diagram-paper: #fff;
-}
-:root[data-theme="dark"] {
-  --background: #0b0d0f;
-  --surface: #15181b;
-  --surface-subtle: #202428;
-  --primary: #f1f4f3;
-  --accent: #70ddba;
-  --accent-soft: #242b2a;
-  --border: #353b40;
-  --border-subtle: #292e32;
-  --text-primary: #e9edeb;
-  --text-secondary: #b8c1bd;
-  --text-tertiary: #98a39e;
-  --diagram-ink: #e9edeb;
-  --diagram-muted: #a3ada8;
-  --diagram-grid: #343b3d;
-  --diagram-paper: #15181b;
-  --overlay-shadow: rgba(0, 0, 0, .42);
-}
 
-.site-header { box-shadow: 0 4px 24px rgba(18, 59, 54, .035); }
 .brand { gap: 10px; font-size: 19px; font-weight: 700; letter-spacing: -.055em; }
-.brand-mark { position: relative; width: 35px; height: 35px; padding: 0 4px 0 0; border: 0; border-radius: 9px; display: flex; align-items: center; justify-content: center; color: #fff; background: #0b7666; font-size: 20px; line-height: 1; }
-.brand-mark span { position: absolute; top: 6px; right: 5px; font-size: 9px; }
-.brand-name span { color: var(--accent); }
-.header-nav { margin-left: 8px; }
-.header-nav a { font-weight: 600; }
-.years-label { padding: 5px 9px; border-radius: 6px; color: var(--text-secondary); background: var(--surface-subtle); font-size: 11px; white-space: nowrap; }
 
 /* Home */
-.mathmate-home .overview-hero { max-width: 1320px; min-height: 490px; padding: 72px 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .72fr); align-items: center; gap: clamp(36px, 6vw, 86px); }
-.mathmate-home .overview-kicker { margin-bottom: 22px; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .12em; }
-.mathmate-home .overview-hero h1 { margin: 0; color: var(--primary); font-size: clamp(48px, 5vw, 70px); font-weight: 700; line-height: 1.07; letter-spacing: -.055em; }
-.mathmate-home .overview-hero h1 em { color: var(--accent); font-style: normal; }
-.mathmate-home .overview-hero .hero-copy > p { max-width: 530px; margin: 25px 0 0; color: var(--text-secondary); font-size: 17px; line-height: 1.65; }
-.hero-actions { margin-top: 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
-.hero-actions a { min-height: 46px; display: inline-flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; }
-.hero-primary { padding: 0 18px; border-radius: 8px; color: #fff; background: #0b7666; }
-.hero-primary:hover { background: #095f53; }
-.hero-secondary { color: var(--primary); }
-.hero-secondary:hover { color: var(--accent); }
-.hero-showcase { padding: 36px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 16px 38px rgba(19, 56, 44, .07); }
-.hero-showcase > p { margin: 0 0 12px; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .12em; }
-.hero-showcase h2 { margin: 0; color: var(--primary); font-size: clamp(28px, 3vw, 38px); line-height: 1.15; letter-spacing: -.04em; }
-.showcase-steps { margin-top: 25px; border-top: 1px solid var(--border); }
-.showcase-steps span { min-height: 55px; padding: 11px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 13px; color: var(--text-secondary); font-size: 14px; }
-.showcase-steps span:last-child { border-bottom: 0; }
-.showcase-steps svg { color: var(--accent); }
-.mathmate-home .section-intro { max-width: 1320px; padding: 55px 40px 28px; }
-.mathmate-home .section-intro h2 { font-size: clamp(31px, 4vw, 43px); font-weight: 700; letter-spacing: -.04em; }
-.mathmate-home .topic-index { max-width: 1320px; padding: 0 40px 80px; border-top: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.mathmate-home .topic-index-item, .mathmate-home .topic-index-item:not(:nth-child(3n + 1)), .mathmate-home .topic-index-item:nth-child(3n) { min-height: 205px; padding: 23px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-.mathmate-home .topic-index-item.is-ready { border-color: color-mix(in srgb, var(--accent) 42%, var(--border)); }
+
 .topic-card-top { display: flex; }
 .topic-status { padding: 4px 8px; border-radius: 5px; color: var(--text-tertiary); background: var(--surface-subtle); font-size: 10px; font-weight: 700; }
 .is-ready .topic-status { color: var(--accent); background: var(--accent-soft); }
-.mathmate-home .topic-heading { margin-top: 24px; }
-.mathmate-home .topic-heading h3 { font-size: 21px; letter-spacing: -.03em; }
+
 .topic-card-description { margin: 9px 0 0; color: var(--text-secondary); font-size: 13px; }
-.mathmate-home .topic-link { margin-top: auto; padding-top: 12px; color: var(--accent); }
 
 /* Topic and subtopic directories */
-.topic-directory-page .breadcrumbs { margin-bottom: 45px; }
-.topic-directory-page .topic-page-heading, .topic-directory-page .subtopic-directory, .question-directory-page { max-width: 880px; }
-.topic-page-heading h1, .detail-heading h1 { font-weight: 700; letter-spacing: -.045em; }
+
+.topic-directory-page .topic-page-heading { max-width: 880px; }
+.topic-page-heading h1 { font-weight: 700; letter-spacing: -.045em; }
 .topic-directory-page .topic-page-heading { padding-bottom: 40px; }
-.directory-section-title { margin-bottom: 17px; display: flex; align-items: end; justify-content: space-between; gap: 16px; }
-.directory-section-title p { margin: 0 0 6px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .11em; }
-.directory-section-title h2 { margin: 0; color: var(--primary); font-size: 23px; letter-spacing: -.03em; }
-.directory-question-count { color: var(--text-tertiary); font-size: 13px; white-space: nowrap; }
-.topic-directory-page .subtopic-directory { padding-top: 35px; }
-.topic-directory-page .subtopic-directory > a { min-height: 72px; padding: 15px; border: 1px solid var(--border); border-bottom: 0; background: var(--surface); align-items: center; }
-.topic-directory-page .subtopic-directory > a:first-of-type { border-radius: 9px 9px 0 0; }
-.topic-directory-page .subtopic-directory > a:last-child { border-bottom: 1px solid var(--border); border-radius: 0 0 9px 9px; }
-.topic-directory-page .subtopic-directory > a:hover, .subtopic-question-link:hover { background: var(--accent-soft); }
-.topic-directory-page .subtopic-directory p { margin-top: 2px; }
-.question-directory-page .detail-heading { padding-bottom: 28px; }
-.question-directory-page .detail-heading span { display: block; margin-top: 13px; color: var(--text-secondary); font-size: 14px; }
-.subtopic-question-summary { margin: 24px 0 42px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-.subtopic-question-summary a { min-height: 65px; padding: 17px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); display: flex; align-items: center; gap: 14px; }
-.subtopic-question-summary a:hover { border-color: var(--accent); }
-.subtopic-question-summary span { flex: 1; color: var(--primary); font-size: 14px; font-weight: 700; }
-.subtopic-question-summary svg { color: var(--accent); }
-.subtopic-question-list { padding-top: 3px; }
-.subtopic-question-list + .subtopic-question-list { margin-top: 38px; }
-.subtopic-question-link { min-height: 70px; padding: 12px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 32px minmax(0, 1fr) 18px; align-items: center; gap: 12px; }
-.subtopic-question-link:last-child { border-bottom: 1px solid var(--border); }
-.directory-question-number { color: var(--accent); font-size: 13px; font-weight: 700; }
-.directory-question-description { min-width: 0; display: grid; gap: 2px; }
-.directory-question-description strong { color: var(--primary); font-size: 14px; }
-.directory-question-description small { color: var(--text-tertiary); font-size: 11px; }
-.subtopic-question-link > svg { color: var(--accent); }
-.subtopic-question-loading { min-height: 520px; }
-.question-loading-summary { min-height: 65px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.question-loading-summary::after, .question-loading-heading, .question-loading-row i { content: ''; display: block; height: 10px; border-radius: 5px; background: var(--surface-subtle); }
-.question-loading-summary::after { width: 48%; margin: 26px 17px; }
-.question-loading-list { display: grid; }
-.question-loading-heading { width: 170px; height: 17px; margin: 0 0 17px; }
-.question-loading-row { min-height: 70px; padding: 12px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 14px; }
-.question-loading-row i:first-child { width: 22px; }
-.question-loading-row i:nth-child(2) { width: min(55%, 360px); }
-.question-loading-row i:last-child { width: 18px; margin-left: auto; }
-.question-loading-row:last-child { border-bottom: 1px solid var(--border); }
-.directory-empty { margin: 30px 0; padding: 44px 25px; border: 1px dashed var(--border); border-radius: 10px; background: var(--surface); text-align: center; }
-.directory-empty > svg { color: var(--accent); }
-.directory-empty h2 { margin: 10px 0 5px; color: var(--primary); }
-.directory-empty p { margin: 0 auto 12px; color: var(--text-secondary); }
-.directory-empty a { color: var(--accent); display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
 
 /* A compact question picker stays usable as the bank grows. */
-.practice-shell .practice-heading { padding-bottom: 12px; border-bottom: 0; }
-.practice-shell .practice-heading h1 { font-weight: 700; letter-spacing: -.04em; }
-.practice-shell .practice-filters { margin: 12px 0 16px; padding: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-.practice-filter-loading-heading, .practice-filter-loading-control span, .question-picker-loading i { display: block; border-radius: 5px; background: var(--surface-subtle); }
-.practice-filter-loading-heading { width: 130px; height: 18px; }
-.practice-filter-loading-control { display: grid; gap: 7px; }
-.practice-filter-loading-control span:first-child { width: 65px; height: 10px; }
-.practice-filter-loading-control span:last-child { height: 39px; border: 1px solid var(--border); background: var(--background); }
-.question-picker-loading { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-.question-picker-loading i { width: 38px; height: 38px; border: 1px solid var(--border); }
-.practice-filter-heading { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.practice-filter-heading h2 { margin: 0; color: var(--primary); font-size: 18px; }
-.practice-filter-heading strong { color: var(--text-tertiary); font-size: 12px; }
-.practice-filter-controls { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 10px; }
-.practice-filter-controls label { color: var(--text-secondary); display: grid; gap: 4px; font-size: 11px; font-weight: 700; }
-.practice-filter-controls select, .practice-filter-controls input { width: 100%; height: 39px; min-width: 0; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); background: var(--background); font-size: 12px; font-weight: 400; }
-.practice-shell .numbered-question-picker { max-width: none; margin: 0 0 20px; grid-template-columns: auto 1fr; align-items: center; }
-.practice-shell .numbered-question-picker > span { padding-top: 0; }
-.practice-shell .numbered-question-picker > div { align-items: center; }
-.practice-shell .numbered-question-picker button { width: 38px; height: 38px; border-radius: 7px; font-size: 13px; }
-.practice-shell .numbered-question-picker button:disabled { opacity: .35; cursor: not-allowed; }
-.question-subtopic-tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
-.question-subtopic-tags span { padding: 2px 6px; border-radius: 4px; color: var(--accent); background: var(--accent-soft); font-size: 10px; }
-.practice-shell .exam-question, .practice-shell .ai-tutor-panel { border-radius: 10px; }
+
+.practice-shell .ai-tutor-panel { border-radius: 10px; }
 .practice-shell .question-stimulus, .practice-shell .question-part-prompt { overflow-x: auto; }
-.practice-shell .question-help-row button:disabled, .practice-shell .attach-solution-button:disabled { opacity: .5; cursor: not-allowed; }
 
 /* Question diagrams share theme colours with the rest of the workspace. */
 .practice-shell .math-text { white-space: pre-wrap; }
@@ -206,21 +77,3 @@
 .practice-shell .unsupported-block { padding: 10px; border: 1px dashed var(--border); border-radius: 5px; color: var(--text-secondary); font-size: 12px; }
 .practice-shell .part-reference { color: var(--text-secondary); font-style: italic; }
 
-@media (max-width: 960px) {
-  .mathmate-home .overview-hero { grid-template-columns: 1fr; gap: 28px; }
-  .mathmate-home .topic-index { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 700px) {
-  .mathmate-home .overview-hero { padding: 48px 20px; }
-  .mathmate-home .overview-hero h1 { font-size: clamp(39px, 10vw, 54px); }
-  .hero-showcase { padding: 26px; }
-  .mathmate-home .section-intro { padding: 40px 20px 25px; }
-  .mathmate-home .topic-index { padding: 0 20px 60px; grid-template-columns: 1fr; }
-  .practice-filter-controls { grid-template-columns: 1fr; }
-  .subtopic-question-summary { grid-template-columns: 1fr; }
-}
-@media (max-width: 470px) {
-  .years-label { display: none; }
-  .practice-shell .numbered-question-picker { grid-template-columns: 1fr; }
-  .practice-shell .numbered-question-picker > div { flex-wrap: wrap; }
-}

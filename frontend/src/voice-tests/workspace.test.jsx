@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import QuestionPracticePage from '../pages/QuestionPracticePage.jsx'
-import TopicPage from '../pages/TopicPage.jsx'
+import PracticePage from '../pages/PracticePage.jsx'
 
 vi.mock('../api/content.js', () => ({
   getQuestionBank: vi.fn().mockResolvedValue({
@@ -14,7 +14,6 @@ vi.mock('../api/content.js', () => ({
       parts: [{ id: 'part-one', label: '(a)', marks: 1, prompt: [] }],
     }],
   }),
-  getQuestionCount: vi.fn().mockResolvedValue(1),
   getQuestionSummary: vi.fn().mockResolvedValue({ topic_counts: { 8: 1 }, subtopic_counts: {} }),
   getQuestionPartSolution: vi.fn(),
 }))
@@ -29,57 +28,51 @@ vi.mock('../api/submissions.js', async importOriginal => ({
   }]),
 }))
 
-let resizeWorkspace
 function renderWorkspace(path = '/topic/8/practice') {
   return render(<MemoryRouter initialEntries={[path]}><Routes>
     <Route path="/topic/:topicNumber/practice" element={<QuestionPracticePage />} />
-    <Route path="/topic/:topicNumber" element={<TopicPage />} />
+    <Route path="/topic/:topicNumber" element={<PracticePage />} />
   </Routes></MemoryRouter>)
 }
 
 beforeEach(() => {
   localStorage.clear()
-  vi.stubGlobal('ResizeObserver', class {
-    constructor(callback) { resizeWorkspace = callback }
-    observe() { resizeWorkspace() }
-    disconnect() {}
-  })
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
   Element.prototype.scrollIntoView = vi.fn()
-  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function () {
-    const width = document.querySelector('.is-sidebar-collapsed') ? 1200 : 900
-    return { width, right: width, left: 0, top: 0, bottom: 700, height: 700 }
-  })
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
-test('the sidebar edge toggle preserves chat drafts and its compact size across practice and lessons', async () => {
+test('hiding and showing the tutor keeps the chat draft and is remembered', async () => {
   await act(async () => { renderWorkspace() })
   await screen.findByText('Think about the two possible outcomes.')
-  const composer = screen.getByRole('textbox', { name: 'Ask the AI tutor about this question' })
+  const composer = screen.getByRole('textbox', { name: 'Message the tutor' })
   fireEvent.change(composer, { target: { value: 'What should I consider next?' } })
-  expect(composer.value).toBe('What should I consider next?')
-  expect(screen.queryByRole('button', { name: 'Widen AI tutor' })).toBeNull()
-  const toggle = screen.getByRole('button', { name: 'Collapse syllabus sidebar' })
-  expect(toggle.closest('.reader-sidebar')).toBeTruthy()
+  const tutor = screen.getByRole('complementary', { name: 'Tutor' })
+  const toggle = within(screen.getByRole('banner')).getByRole('button', { name: 'Tutor' })
+  expect(toggle.getAttribute('aria-pressed')).toBe('true')
+  fireEvent.click(within(tutor).getByRole('button', { name: 'Hide tutor' }))
+  expect(tutor.classList.contains('is-closed')).toBe(true)
+  expect(toggle.getAttribute('aria-pressed')).toBe('false')
+  expect(localStorage.getItem('practice-tutor-open-v1')).toBe('false')
   fireEvent.click(toggle)
-  act(() => resizeWorkspace())
-  expect(composer.value).toBe('What should I consider next?')
-  expect(document.getElementById('main-content').classList.contains('is-sidebar-collapsed')).toBe(true)
-  expect(screen.getByRole('link', { name: '8.1 Introduction to probability' })).toBeTruthy()
-  expect(localStorage.getItem('practice-sidebar-collapsed-v1')).toBe('true')
-  fireEvent.click(screen.getByRole('button', { name: 'Expand syllabus sidebar' }))
-  act(() => resizeWorkspace())
-  expect(document.getElementById('main-content').classList.contains('is-sidebar-collapsed')).toBe(false)
-  fireEvent.click(screen.getByRole('button', { name: 'Collapse syllabus sidebar' }))
+  expect(tutor.classList.contains('is-closed')).toBe(false)
   expect(composer.value).toBe('What should I consider next?')
   expect(screen.getByText('Think about the two possible outcomes.')).toBeTruthy()
+  expect(localStorage.getItem('practice-tutor-open-v1')).toBe('true')
   cleanup()
-  await act(async () => { renderWorkspace('/topic/8') })
-  expect(screen.getByRole('heading', { name: 'Probability' })).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Expand syllabus sidebar' }).getAttribute('aria-expanded')).toBe('false')
-  fireEvent.click(screen.getByRole('button', { name: 'Expand syllabus sidebar' }))
-  expect(document.getElementById('main-content').classList.contains('is-sidebar-collapsed')).toBe(false)
+  localStorage.setItem('practice-tutor-open-v1', 'false')
+  await act(async () => { renderWorkspace() })
+  expect(screen.getByRole('complementary', { name: 'Tutor', hidden: true }).classList.contains('is-closed')).toBe(true)
+})
+
+test('the workspace replaces the syllabus sidebar with a back link and question navigation', async () => {
+  await act(async () => { renderWorkspace() })
+  await screen.findByText('Think about the two possible outcomes.')
+  expect(screen.queryByRole('button', { name: 'Collapse syllabus sidebar' })).toBeNull()
+  expect(screen.getByRole('link', { name: 'Probability' }).getAttribute('href')).toBe('/topic/8')
+  expect(screen.getByRole('navigation', { name: 'Question navigation' }).textContent).toBe('Question 1 of 1')
+  fireEvent.click(screen.getByRole('link', { name: 'Probability' }))
+  expect(await screen.findByRole('heading', { name: 'Probability' })).toBeTruthy()
 })
 
 test('voice settings stay out of the conversation and can be dismissed with Escape', async () => {

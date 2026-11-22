@@ -136,15 +136,18 @@ export function StandardGraphBlock({ block }) {
 
 export function StandardDiagramBlock({ block }) {
   if (validateStandardBlock({ ...block, type: 'diagram' }).length) return <div className="unsupported-block">Diagram data does not match the standard format. See validation warnings.</div>
-  const [width, height] = block.view_box ?? []
+  const sourceViewBox = block.view_box ?? []
+  const [originX, originY, width, height] = sourceViewBox.length === 4
+    ? sourceViewBox
+    : [0, 0, ...sourceViewBox]
   if (!finite(width) || !finite(height) || width <= 0 || height <= 0) return <div className="unsupported-block">Diagram needs a positive view_box.</div>
   const viewport = Array.isArray(block.display_view_box) && block.display_view_box.length === 4 && block.display_view_box.every(finite) && block.display_view_box[2] > 0 && block.display_view_box[3] > 0
     ? block.display_view_box
-    : [0, 0, width, height]
+    : [originX, originY, width, height]
   return <figure className="diagram-block standard-diagram">
     <svg viewBox={viewport.join(' ')} role="img" aria-label={block.alt || 'Question diagram'}>
       {(block.elements ?? []).map((element, index) => <DrawingElement element={element} key={index} />)}
-      {block.not_to_scale && <text x={width - 10} y={height - 8} textAnchor="end" className="not-scale">NOT TO SCALE</text>}
+      {block.not_to_scale && <text x={originX + width - 10} y={originY + height - 8} textAnchor="end" className="not-scale">NOT TO SCALE</text>}
     </svg>
     {block.caption && <figcaption><MathText>{block.caption}</MathText></figcaption>}
   </figure>

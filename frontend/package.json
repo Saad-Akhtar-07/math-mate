@@ -7,7 +7,8 @@
     "node": ">=20.19.0"
   },
   "scripts": {
-    "test": "node --test src/api/*.test.js",
+    "test": "node --test src/api/*.test.js src/utils/*.test.js",
+    "test:all": "npm test && npm run test:voice && npm run test:questions",
     "test:voice": "vitest run src/voice-tests",
     "test:questions": "vitest run src/data",
     "dev": "vite",
@@ -15,7 +16,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@supabase/supabase-js": "^2.119.1",
     "katex": "^0.18.4",
     "lucide-react": "^1.33.0",
     "react": "^19.2.8",
