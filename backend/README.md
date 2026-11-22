@@ -21,7 +21,7 @@ backend/
                              tutor turns and learner memory (transactions and ownership)
     tutoring/                Pure marking and tutoring logic: part context, mark-scheme rules,
                              Marker, Observer, policy, Composer, leak guard, learner model,
-                             catalogue/ (Topic 2 outcomes, skill aliases, misconceptions)
+                             catalogue/ (all 150 outcomes, skill aliases, and misconceptions for Topics 1-9)
     ai/                      The only code that calls a model: gateway (budget ledger, no
                              retries), DeepSeek and fake providers, prices, versioned prompts
   scripts/                   Administrative command-line tools

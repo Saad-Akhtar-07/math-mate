@@ -307,7 +307,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
   <h2>What the backend remembers about a student</h2>
   <figure>
     <div class="scroll">
-    <svg class="dg" viewBox="0 0 900 210" role="img" aria-label="Student memory is updated when Check my work is marked (adds evidence) and when a part is solved with full marks (marks mistakes as fixed). The tutor reads it at every message without changing it. The marker never uses it.">
+    <svg class="dg" viewBox="0 0 900 210" role="img" aria-label="Student memory is updated when Check my work is marked, recording outcome evidence and named recurring mistakes across all nine topics, and when a part is solved with full marks, marking those mistakes as fixed. The tutor reads it at every message without changing it. The marker never uses it.">
       <defs>
         <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
       </defs>
@@ -319,7 +319,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
       <text x="135" y="176" text-anchor="middle">full marks after tutoring</text>
       <rect class="box mem" x="340" y="65" width="220" height="80" rx="10"/>
       <text class="t" x="450" y="98" text-anchor="middle">Student memory</text>
-      <text x="450" y="118" text-anchor="middle">skills, repeated mistakes,</text>
+      <text x="450" y="118" text-anchor="middle">all topics, named mistakes,</text>
       <text x="450" y="134" text-anchor="middle">help usually needed</text>
       <rect class="box ai" x="650" y="20" width="230" height="60" rx="8"/>
       <text class="t" x="765" y="46" text-anchor="middle">Tutor</text>
@@ -337,7 +337,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
       <text class="lab pen" x="604" y="172" text-anchor="middle">never reads it</text>
     </svg>
     </div>
-    <figcaption>Memory changes at only two moments: when a check is marked, and when a part is finally solved, which records the mistakes as fixed and how much help was needed. Chatting with the tutor adds no evidence; the tutor only reads memory.</figcaption>
+    <figcaption>Memory changes at only two moments: when a check is marked, and when a part is finally solved, which records the mistakes as fixed and how much help was needed. Every syllabus outcome across all nine topics now has named misconception coverage. Chatting with the tutor adds no evidence; the tutor only reads memory.</figcaption>
   </figure>
   <div class="two">
     <div class="card">
@@ -406,6 +406,8 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
   <span class="eyebrow">What changed</span>
   <h2>Backend updates</h2>
   <ol class="changes">
+    <li><time datetime="2026-11-22">22 Nov 2026</time><div><h3>Misconception memory now covers all nine topics</h3>
+      <p>The Marker can classify common, observable mistakes against every one of the 150 syllabus outcomes. Stable names let student memory recognise a repeated difficulty across questions, and catalogue checks prevent any topic from silently losing coverage.</p></div></li>
     <li><time datetime="2026-11-22">22 Nov 2026</time><div><h3>Graphs and diagrams can now be checked</h3>
       <p>Visual attempts save either an authoritative primary photo or a canvas drawing with its fresh preview, then freeze that source with the submission. The Marker cannot substitute an older image or supporting page. Fixed rules give unreadable, unrelated and ambiguous visuals no marks or student-memory evidence, while ordinary text answers keep their existing flow.</p></div></li>
     <li><time datetime="2026-11-19">19 Nov 2026</time><div><h3>Question pages open faster</h3>

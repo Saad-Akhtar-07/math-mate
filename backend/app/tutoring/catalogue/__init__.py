@@ -4,6 +4,7 @@ They live under backend/ because the deployed service only contains this folder.
 """
 
 import json
+import re
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -64,6 +65,20 @@ def catalogue_errors():
     raw_items = _load('misconceptions.json')['items']
     ids = [item['id'] for item in raw_items]
     errors += [f'Duplicate misconception {item}' for item in set(ids) if ids.count(item) > 1]
+    errors += [f'Invalid misconception id {item}' for item in ids if not re.fullmatch(r'[a-z0-9_]{1,80}', item)]
+    descriptions = [item.get('description', '').strip() for item in raw_items]
+    errors += [f'Misconception {item["id"]} has no description' for item in raw_items
+               if not item.get('description', '').strip()]
+    errors += [f'Misconception {item["id"]} description is too long' for item in raw_items
+               if len(item.get('description', '')) > 240]
+    errors += [f'Duplicate misconception description {description}' for description in set(descriptions)
+               if description and descriptions.count(description) > 1]
     for item in raw_items:
+        if not item['outcomes']:
+            errors.append(f'Misconception {item["id"]} has no outcomes')
+        if len(item['outcomes']) != len(set(item['outcomes'])):
+            errors.append(f'Misconception {item["id"]} repeats an outcome')
         errors += [f'Misconception {item["id"]} uses unknown outcome {code}' for code in item['outcomes'] if code not in codes]
+    covered = {code for item in raw_items for code in item['outcomes']}
+    errors += [f'Outcome {code} has no misconception coverage' for code in codes if code not in covered]
     return errors
