@@ -184,7 +184,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
   <h2>What happens on "Check my work"</h2>
   <figure>
     <div class="scroll">
-    <svg class="dg" viewBox="0 0 880 300" role="img" aria-label="Check my work freezes the work, the AI Marker reads it against the mark scheme, the mark checker counts the marks, then results go three ways: to the student, to the tutor as a mistakes list, and to student memory as evidence.">
+    <svg class="dg" viewBox="0 0 880 300" role="img" aria-label="Check my work freezes typed and visual work, the AI Marker reads one primary answer image plus compact drawing evidence against the mark scheme, the mark checker enforces the criteria and counts the marks, then reliable results go to the student, tutor and student memory.">
       <defs>
         <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
       </defs>
@@ -193,11 +193,11 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
       <text x="110" y="80" text-anchor="middle">student presses the button</text>
       <rect class="box" x="240" y="30" width="180" height="70" rx="8"/>
       <text class="t" x="330" y="60" text-anchor="middle">Freeze the work</text>
-      <text x="330" y="80" text-anchor="middle">a fixed copy of this attempt</text>
+      <text x="330" y="80" text-anchor="middle">text + drawing + primary image</text>
       <rect class="box ai" x="460" y="30" width="180" height="70" rx="8"/>
       <text class="t" x="550" y="56" text-anchor="middle">Marker</text>
-      <text x="550" y="74" text-anchor="middle">reads typed work + photos</text>
-      <text x="550" y="90" text-anchor="middle">against the mark scheme</text>
+      <text x="550" y="74" text-anchor="middle">reads one visual answer image</text>
+      <text x="550" y="90" text-anchor="middle">+ compact coordinates + scheme</text>
       <rect class="box" x="680" y="30" width="180" height="70" rx="8"/>
       <text class="t" x="770" y="56" text-anchor="middle">Mark checker</text>
       <text x="770" y="74" text-anchor="middle">counts the marks</text>
@@ -226,7 +226,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
       <text x="720" y="271" text-anchor="middle">in this question</text>
     </svg>
     </div>
-    <figcaption>One AI call per check. The AI only says which marks it would give; plain rules check that against the mark scheme and add up the total. If its answer breaks the rules, it gets one chance to fix it. Only Check my work earns marks; the tutor never gives marks.</figcaption>
+    <figcaption>The AI only decides each mark point, misconceptions and feedback; plain rules enforce dependencies and add the total. A visual attempt has one authoritative answer: an uploaded photo in photo mode, otherwise a fresh rendering of the canvas. Supporting work is never a second final answer. Unreadable, unrelated or ambiguous visuals receive no marks and never change student memory. Visual marking uses exactly one Marker call; text-only marking keeps its single format-repair allowance. Only Check my work earns marks; the tutor never gives marks.</figcaption>
   </figure>
 </section>
 
@@ -382,7 +382,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
       <text x="335" y="86" text-anchor="middle">under today's limit?</text>
       <rect class="box ai" x="460" y="40" width="170" height="60" rx="8"/>
       <text class="t" x="545" y="66" text-anchor="middle">DeepSeek</text>
-      <text x="545" y="86" text-anchor="middle">one call, no retries</text>
+      <text x="545" y="86" text-anchor="middle">bounded call policy</text>
       <rect class="box mem" x="670" y="40" width="190" height="60" rx="8"/>
       <text class="t" x="765" y="66" text-anchor="middle">Cost recorded</text>
       <text x="765" y="86" text-anchor="middle">adds to today's total</text>
@@ -406,6 +406,8 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
   <span class="eyebrow">What changed</span>
   <h2>Backend updates</h2>
   <ol class="changes">
+    <li><time datetime="2026-11-22">22 Nov 2026</time><div><h3>Graphs and diagrams can now be checked</h3>
+      <p>Visual attempts save either an authoritative primary photo or a canvas drawing with its fresh preview, then freeze that source with the submission. The Marker cannot substitute an older image or supporting page. Fixed rules give unreadable, unrelated and ambiguous visuals no marks or student-memory evidence, while ordinary text answers keep their existing flow.</p></div></li>
     <li><time datetime="2026-11-19">19 Nov 2026</time><div><h3>Question pages open faster</h3>
       <p>The app asks for the small catalogue first, warms one question bank at a time, and briefly keeps public question content ready so students do not repeat the same database wait.</p></div></li>
     <li><time datetime="2026-11-18">18 Nov 2026</time><div><h3>Real accounts replace browser guests</h3>

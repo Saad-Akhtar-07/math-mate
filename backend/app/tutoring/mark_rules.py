@@ -40,6 +40,17 @@ def validate(output: MarkerOutput, context):
             violations.append(f'Status {output.status} must not award any points.')
         return (None, violations) if violations else (MarkResult(output, None, context.marks, ()), [])
 
+    if context.visual_response:
+        expected = {point.id for point in context.marking_points if point.id != 'P0'}
+        decided = set(ids)
+        for point_id in sorted(expected - decided):
+            violations.append(f'Visual point {point_id} needs exactly one decision.')
+        if 'P0' in decided:
+            violations.append('Visual responses must decide the listed criteria, not P0.')
+        for decision in output.decisions:
+            if decision.awarded and decision.point_id in expected and not decision.evidence_refs:
+                violations.append(f'Visual point {decision.point_id} was awarded without evidence references.')
+
     for mistake in output.mistakes:
         if mistake.outcome_code not in context.candidate_outcomes:
             violations.append(f'Mistake outcome {mistake.outcome_code} is not one of the candidate outcomes.')
@@ -47,7 +58,10 @@ def validate(output: MarkerOutput, context):
             violations.append(f'Misconception {mistake.misconception_id} is not listed; use a listed id, "other" or null.')
         violations += [f'Mistake refers to unknown point {point_id}.' for point_id in mistake.points_lost if not context.point(point_id)]
 
-    if 'P0' in awarded:
+    visual_full = next((point for point in context.marking_points if point.kind == 'visual_answer'), None)
+    if visual_full and visual_full.id in awarded and len(awarded) > 1:
+        violations.append('The complete visual criterion cannot be awarded with partial visual criteria.')
+    if 'P0' in awarded or (visual_full and visual_full.id in awarded):
         total = context.marks
     else:
         points = [context.point(point_id) for point_id in awarded]

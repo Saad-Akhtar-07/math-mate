@@ -12,6 +12,7 @@ import pytest
 from backend.app.ai import gateway
 from backend.app.ai.providers import fake_provider
 from backend.app.ai.types import BudgetExceeded, LLMRequest, ProviderTimeout
+from backend.app.services import assessments as assessment_service, uploads
 from backend.app.tutoring.part_context import build_part_context
 from helpers import save, user, user_id
 
@@ -31,6 +32,29 @@ def turn(http, headers, message, intent='message', client_id=None):
 
 def assessments(http, headers):
     return http.get('/api/v1/me/assessments?topic_number=2', headers=headers).json()['assessments']
+
+
+@pytest.fixture
+def visual_storage(monkeypatch):
+    class FakeStorage:
+        bucket = 'test-private-solutions'
+        objects = {}
+        def put(self, key, data):
+            type(self).objects[key] = data
+        def get(self, bucket, key):
+            return type(self).objects[key]
+    FakeStorage.objects = {}
+    monkeypatch.setattr(uploads, 'Storage', FakeStorage)
+    monkeypatch.setattr(assessment_service, 'Storage', FakeStorage)
+    return FakeStorage
+
+
+def visual_photo(color):
+    import io
+    from PIL import Image
+    buffer = io.BytesIO()
+    Image.new('RGB', (120, 180), color).save(buffer, format='PNG')
+    return buffer.getvalue()
 
 
 def calls(connection, purpose):
@@ -148,7 +172,7 @@ def test_unavailable_ai_graph_parts_and_stale_jobs(client, monkeypatch):
 
     rows = connection.execute('''select p.id, q.question_data from math_mate.question_parts p
         join math_mate.questions q on q.id = p.question_id where p.active order by p.id''').fetchall()
-    graph_part = next(part_id for part_id, question in rows if not build_part_context(question, part_id).ai_markable)
+    graph_part = next(part_id for part_id, question in rows if build_part_context(question, part_id).visual_response)
     save(http, headers, graph_part, 'my sketch')
     assert assess(http, headers, 1, graph_part).status_code == 422
 
@@ -159,6 +183,66 @@ def test_unavailable_ai_graph_parts_and_stale_jobs(client, monkeypatch):
     assert stale['status'] == 'failed' and stale['can_retry']
     assert assess(http, headers, 1).json()['id'] == job['id']
     assert [item for item in assessments(http, headers) if item['id'] == job['id']][0]['status'] == 'completed'
+
+
+def test_primary_photo_marks_once_and_unreadable_replacement_adds_no_evidence(client, visual_storage):
+    http, connection = client
+    headers = user(http)
+    owner = user_id(connection, headers)
+    rows = connection.execute('''select p.id, q.question_data from math_mate.question_parts p
+        join math_mate.questions q on q.id = p.question_id
+        where p.active and q.topic_code = '2' order by p.id''').fetchall()
+    part_id, question = next((part_id, question) for part_id, question in rows
+                             if build_part_context(question, part_id).visual_response)
+    context = build_part_context(question, part_id)
+    visual = {'version': 'visual-answer-v1', 'primary_source': 'photo', 'objects': []}
+    saved = http.put(f'/api/v1/me/responses/{part_id}', headers=headers,
+                     json={'typed_work': '', 'visual_answer': visual, 'expected_revision': 0})
+    assert saved.status_code == 200
+    stale = http.post(f'/api/v1/me/responses/{part_id}/attachments', headers=headers,
+        data={'expected_revision': str(saved.json()['revision']), 'role': 'primary_visual', 'visual_source': 'canvas'},
+        files={'image': ('old-canvas.png', visual_photo('black'), 'image/png')})
+    assert stale.status_code == 200, stale.text
+    mismatch = http.post(f'/api/v1/me/responses/{part_id}/assessments?wait=true', headers=headers,
+                         json={'expected_revision': stale.json()['revision']})
+    assert mismatch.status_code == 422
+
+    uploaded = http.post(f'/api/v1/me/responses/{part_id}/attachments', headers=headers,
+        data={'expected_revision': str(stale.json()['revision']), 'role': 'primary_visual', 'visual_source': 'photo'},
+        files={'image': ('graph.png', visual_photo('white'), 'image/png')})
+    assert uploaded.status_code == 200, uploaded.text
+    assert uploaded.json()['attachments'][0]['visual_source'] == 'photo'
+
+    decisions = [
+        {'point_id': point.id, 'awarded': point.kind == 'visual_answer', 'reason': 'Visible in the primary image.',
+         'evidence_refs': ['primary-image'], 'confidence': 'high'}
+        for point in context.marking_points if point.id != 'P0'
+    ]
+    fake_provider().queue({'status': 'marked', 'what_i_read': 'A complete visual answer.',
+                           'decisions': decisions, 'mistakes': [], 'feedback': 'Well done.', 'confidence': 'high'})
+    marked = http.post(f'/api/v1/me/responses/{part_id}/assessments?wait=true', headers=headers,
+                       json={'expected_revision': uploaded.json()['revision']})
+    assert marked.status_code == 200, marked.text
+    assert marked.json()['outcome'] == 'marked'
+    assert marked.json()['marks_awarded'] == context.marks
+    evidence_after_mark = connection.execute(
+        'select count(*) from math_mate.learning_events where user_id = %s', (owner,)).fetchone()[0]
+    assert evidence_after_mark > 0
+
+    replacement = http.post(f'/api/v1/me/responses/{part_id}/attachments', headers=headers,
+        data={'expected_revision': str(uploaded.json()['revision']), 'role': 'primary_visual', 'visual_source': 'photo'},
+        files={'image': ('unclear.png', visual_photo('gray'), 'image/png')})
+    assert replacement.status_code == 200, replacement.text
+    fake_provider().queue({'status': 'unreadable', 'what_i_read': '', 'decisions': [], 'mistakes': [],
+                           'feedback': '', 'confidence': 'low'})
+    unreadable = http.post(f'/api/v1/me/responses/{part_id}/assessments?wait=true', headers=headers,
+                           json={'expected_revision': replacement.json()['revision']})
+    assert unreadable.status_code == 200, unreadable.text
+    assert unreadable.json()['outcome'] == 'unreadable'
+    assert unreadable.json()['marks_awarded'] is None
+    assert 'Retake the photo' in unreadable.json()['feedback']
+    assert connection.execute('select count(*) from math_mate.learning_events where user_id = %s',
+                              (owner,)).fetchone()[0] == evidence_after_mark
 
 
 def test_budget_reservations_block_before_any_request(client, monkeypatch):

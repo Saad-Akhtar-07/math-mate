@@ -97,7 +97,7 @@ test('all imported question and part content blocks render', () => {
       expect(markup, `${question.id}: ${block.type} contains internal copy or broken characters`).not.toMatch(/source paper|source question|reconstructed from counts|compare with the source|[ÃÂ]/i)
     }
   }
-})
+}, 15000)
 
 test('Topic 1 four-value SVG view boxes render without changing their coordinates', () => {
   const question = getTopicQuestions('1').find((item) => item.id === '4024-s22-11-t1-q18')

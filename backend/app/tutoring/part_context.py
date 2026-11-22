@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from . import catalogue
 from .leak_guard import answer_tokens
 
-# Graph and diagram answers cannot be judged reliably from text or photos yet.
+# Visual answers use the multimodal Marker and require a primary answer image.
 GRAPH_RESPONSES = frozenset({
     'graph_plot', 'graph_sketch', 'graph_annotation', 'graph_annotation_and_short_answer',
     'graph_annotation_and_multiple_short_answers', 'graph_drawing', 'diagram_drawing',
@@ -52,10 +52,16 @@ class PartContext:
     candidate_outcomes: tuple
     misconception_ids: tuple
     subtopic_code: str
+    marking_notes: tuple = ()
+    visual_blocks: tuple = ()
 
     @property
     def ai_markable(self):
-        return ai_markable_response(self.response_type) and self.marks > 0
+        return self.marks > 0
+
+    @property
+    def visual_response(self):
+        return self.response_type in GRAPH_RESPONSES
 
     def point(self, point_id):
         return next((point for point in self.marking_points if point.id == point_id), None)
@@ -69,13 +75,20 @@ class PartContext:
             'marks': self.marks,
             'question': self.prompt_text,
             'answer_prefix': self.answer_prefix,
+            'response_type': self.response_type,
             'candidate_outcomes': [{'code': code, 'text': outcomes[code].text} for code in self.candidate_outcomes],
             'misconceptions': [{'id': item, 'description': misconceptions[item].description} for item in self.misconception_ids],
         }
         shown = [point for point in self.marking_points
-                 if include_scheme or (point.id in point_ids and point.id != 'P0')]
+                 if point.id != 'P0' and (include_scheme or point.id in point_ids)]
+        if include_scheme and not self.visual_response:
+            shown.insert(0, self.marking_points[0])
         if shown:
             view['marking_points'] = [{'id': point.id, 'code': point.code, 'text': point.text} for point in shown]
+        if include_scheme and self.marking_notes:
+            view['marking_notes'] = list(self.marking_notes)
+        if self.visual_response and self.visual_blocks:
+            view['visual_specification'] = list(self.visual_blocks)
         return view
 
     def model_json(self, **options):
@@ -83,7 +96,9 @@ class PartContext:
 
 
 def ai_markable_response(response_type):
-    return response_type not in GRAPH_RESPONSES
+    # Kept as the public content capability helper. Visual types now use the
+    # same Marker entry point with a mandatory primary image.
+    return True
 
 
 def parse_code(code):
@@ -139,11 +154,22 @@ def build_part_context(question, part_id):
         part, prompts, labels = found
         question_prompts = list(question.get('prompt') or [])
     scheme = part.get('mark_scheme') or {}
+    response = part.get('response') or {}
+    response_type = response.get('type') or 'working'
     marks = int(part.get('marks') or scheme.get('marks') or question.get('total_marks') or question.get('marks') or 0)
     prompt_text = '\n'.join(block_text(block) for block in [*question_prompts, *prompts])
     points = [MarkingPoint('P0', 'answer', scheme.get('answer') or '', marks, 'answer')]
     sources = [*(scheme.get('official_award_structure') or []), *(scheme.get('official_partial_marks') or [])]
-    for index, item in enumerate(sources, 1):
+    # Many visual schemes put the complete answer only in the answer column and
+    # list merely a one-mark partial case below it. Completion is therefore an
+    # explicit visual criterion, never the text-answer P0 shortcut. Validation
+    # makes it mutually exclusive with the official partial criteria.
+    if response_type in GRAPH_RESPONSES:
+        points.append(MarkingPoint(
+            'P1', f'B{marks}',
+            f"Complete correct visual response: {scheme.get('answer') or 'as required by the question.'}",
+            marks, 'visual_answer'))
+    for index, item in enumerate(sources, len(points)):
         kind, value, follow_through, dependent = parse_code(item.get('code'))
         points.append(MarkingPoint(f'P{index}', (item.get('code') or '').strip(), item.get('text') or '',
                                    value, kind, follow_through, dependent or kind == 'A'))
@@ -158,14 +184,15 @@ def build_part_context(question, part_id):
                                      [skills.get('primary'), *(skills.get('supporting') or [])] if skill in aliases)]))
     misconception_ids = tuple(item.id for item in catalogue.misconceptions().values()
                               if set(item.outcomes) & set(candidates))
-    response = part.get('response') or {}
+    visual_blocks = tuple(block for block in [*question_prompts, *prompts]
+                          if block.get('type') in ('graph', 'diagram', 'pattern_sequence'))
     return PartContext(
         part_id=part_id,
         question_id=question['id'],
         label=''.join(labels) or 'Answer',
         marks=marks,
         prompt_text=prompt_text,
-        response_type=response.get('type') or 'working',
+        response_type=response_type,
         answer_prefix=response.get('answer_prefix') or '',
         final_answer=scheme.get('answer') or '',
         final_answer_tokens=answer_tokens(scheme.get('answer') or '', prompt_text),
@@ -174,4 +201,6 @@ def build_part_context(question, part_id):
         candidate_outcomes=tuple(candidates),
         misconception_ids=misconception_ids,
         subtopic_code=alignment.get('subtopic_code') or (catalogue.subtopic_of(primary[0]) if primary else ''),
+        marking_notes=tuple(scheme.get('marking_notes') or ()),
+        visual_blocks=visual_blocks,
     )

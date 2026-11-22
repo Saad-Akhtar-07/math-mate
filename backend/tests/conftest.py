@@ -81,6 +81,16 @@ def client(monkeypatch):
             name = f'math_mate.{table}'
             if connection.execute('select coalesce(to_regclass(%s)::text, to_regproc(%s)::text)', (name, name)).fetchone()[0] is None:
                 connection.execute((PROJECT_ROOT / 'supabase/migrations' / filename).read_text(encoding='utf-8'))
+        visual_column = connection.execute("""select 1 from information_schema.columns
+            where table_schema = 'math_mate' and table_name = 'student_responses'
+                and column_name = 'visual_answer'""").fetchone()
+        if visual_column is None:
+            connection.execute((PROJECT_ROOT / 'supabase/migrations' / '20261122000000_visual_answers.sql').read_text(encoding='utf-8'))
+        visual_source_column = connection.execute("""select 1 from information_schema.columns
+            where table_schema = 'math_mate' and table_name = 'response_attachments'
+                and column_name = 'visual_source'""").fetchone()
+        if visual_source_column is None:
+            connection.execute((PROJECT_ROOT / 'supabase/migrations' / '20261122010000_primary_visual_source.sql').read_text(encoding='utf-8'))
 
         @contextmanager
         def request_connection(autocommit=False):

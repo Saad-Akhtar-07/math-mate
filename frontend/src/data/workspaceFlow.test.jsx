@@ -171,15 +171,55 @@ test('a part with full marks stays collapsed and offers the next part', async ()
   expect(screen.getByRole('region', { name: 'Part (b), current part' })).toBeTruthy()
 })
 
-test('graph answers are submitted without AI checking', async () => {
-  workspace([question([{ id: 'q1-a', label: '(a)', marks: 2, aiMarkable: false, prompt: [paragraph('Draw the graph.')] }])])
-  const answer = await openAnswer()
-  expect(screen.queryByRole('button', { name: 'Check my work' })).toBeNull()
-  expect(screen.getByText(/AI checking is not available for graph or diagram answers yet/)).toBeTruthy()
-  fireEvent.change(answer, { target: { value: 'Line through (0, 1) and (2, 5)' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Submit answer' }))
-  expect(await screen.findByRole('button', { name: 'Submitted' })).toBeTruthy()
-  expect(submitStudentResponse).toHaveBeenCalledWith('q1-a', 1)
+test('a photo-only visual answer is saved before one AI check', async () => {
+  const pages = []
+  requestTutorReview.mockResolvedValue(marked({ marks_awarded: 2 }))
+  saveStudentResponse.mockImplementation(async (partId, text, expected, visualAnswer) => {
+    revision = expected + (revision === 0 ? 1 : 0)
+    return { question_part_id: partId, typed_work: text, visual_answer: visualAnswer,
+      revision, attachments: pages, submitted: false }
+  })
+  uploadSolutionImage.mockImplementation(async (partId, file, expected, options) => {
+    expect(options.role).toBe('primary_visual')
+    expect(options.visualSource).toBe('photo')
+    revision = expected + 1
+    pages.splice(0, pages.length, { id: 'primary', file_id: 'file', role: 'primary_visual',
+      visual_source: 'photo', original_filename: file.name, position: 1 })
+    return { question_part_id: partId, typed_work: '', revision, attachments: pages, submitted: false }
+  })
+  workspace([question([{ id: 'q1-a', label: '(a)', marks: 2, aiMarkable: true, visualResponse: true,
+    prompt: [paragraph('Draw the graph.')] }], { capabilities: { ...capabilities(), uploads: true } })])
+
+  await screen.findByRole('textbox', { name: 'Calculations or explanation (optional)' })
+  expect(screen.getByRole('button', { name: 'Check my work' }).disabled).toBe(true)
+  const primaryInput = screen.getByLabelText('Upload visual answer')
+  await waitFor(() => expect(primaryInput.disabled).toBe(false))
+  fireEvent.change(primaryInput, { target: { files: [new File(['visual'], 'graph.jpg', { type: 'image/jpeg' })] } })
+  await waitFor(() => expect(uploadSolutionImage).toHaveBeenCalledTimes(1))
+  await screen.findByText(/solution page saved/)
+  const check = screen.getByRole('button', { name: 'Check my work' })
+  await waitFor(() => expect(check.disabled).toBe(false))
+  fireEvent.click(check)
+
+  expect(await screen.findByText('2 of 2 marks')).toBeTruthy()
+  expect(uploadSolutionImage).toHaveBeenCalledTimes(1)
+  expect(requestTutorReview).toHaveBeenCalledWith('q1-a', 2)
+  expect(submitStudentResponse).not.toHaveBeenCalled()
+})
+
+test('an old canvas preview cannot stand in for a newly selected photo', async () => {
+  getStudentResponses.mockResolvedValue([{
+    question_part_id: 'q1-a', typed_work: '', revision: 2, submitted: false,
+    visual_answer: { version: 'visual-answer-v1', primary_source: 'photo', objects: [] },
+    attachments: [{ id: 'old', file_id: 'old', role: 'primary_visual', visual_source: 'canvas',
+      original_filename: 'q1-a-visual-answer.jpg', position: 1 }],
+  }])
+  workspace([question([{ id: 'q1-a', label: '(a)', marks: 2, aiMarkable: true, visualResponse: true,
+    prompt: [paragraph('Draw the graph.')] }], { capabilities: { ...capabilities(), uploads: true } })])
+
+  await screen.findByRole('textbox', { name: 'Calculations or explanation (optional)' })
+  expect(await screen.findByText('Upload one clear photo showing the complete graph or diagram.')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Check my work' }).disabled).toBe(true)
   expect(requestTutorReview).not.toHaveBeenCalled()
 })
 

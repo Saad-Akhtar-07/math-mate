@@ -31,7 +31,14 @@ def check_revision(draft, expected):
         raise HTTPException(409, 'This answer changed in another tab. Reload saved work before changing its pages.')
 
 
-def upload_page(part_id: str, owner: UUID, raw: bytes, filename: str | None, expected_revision: int):
+def upload_page(part_id: str, owner: UUID, raw: bytes, filename: str | None, expected_revision: int,
+                role: str = 'supporting_work', visual_source: str | None = None):
+    if role not in ('primary_visual', 'supporting_work'):
+        raise HTTPException(422, 'Unknown attachment role')
+    if role == 'primary_visual' and visual_source not in ('canvas', 'photo'):
+        raise HTTPException(422, 'A primary visual needs a canvas or photo source')
+    if role == 'supporting_work' and visual_source is not None:
+        raise HTTPException(422, 'Supporting work cannot be the primary visual source')
     try:
         page = compress_page(raw)
     except InvalidImage as error:
@@ -44,14 +51,16 @@ def upload_page(part_id: str, owner: UUID, raw: bytes, filename: str | None, exp
     # object, but never an untracked object: cleanup can always find its key.
     with connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
         draft = lock_draft(cursor, owner, part_id)
-        cursor.execute('''select a.id from math_mate.response_attachments a
+        cursor.execute('''select a.id, a.role, a.visual_source from math_mate.response_attachments a
             join math_mate.solution_files f on f.id = a.file_id
             where a.response_id = %s and a.removed_at is null and f.upload_sha256 = %s''', (draft['id'], page.upload_sha256))
-        if cursor.fetchone():
+        duplicate = cursor.fetchone()
+        if duplicate and duplicate['role'] == role and duplicate.get('visual_source') == visual_source:
             return current_response(cursor, draft['id'], owner)
         check_revision(draft, expected_revision)
         attachments = draft_attachments(cursor, [draft['id']]).get(draft['id'], [])
-        if len(attachments) >= 4:
+        replacing_primary = role == 'primary_visual' and any(item.get('role') == 'primary_visual' for item in attachments)
+        if len(attachments) >= 4 and not replacing_primary:
             raise HTTPException(422, 'You can attach up to 4 pages to one answer.')
         file_id = uuid4()
         object_key = f'{owner}/{draft["id"]}/{file_id}.jpg'
@@ -73,14 +82,37 @@ def upload_page(part_id: str, owner: UUID, raw: bytes, filename: str | None, exp
         if not latest_file or latest_file['state'] == 'deleting':
             raise HTTPException(409, 'This upload expired before it completed. Please retry.')
         attachments = draft_attachments(cursor, [draft['id']]).get(draft['id'], [])
-        if any(item['file_id'] == file['id'] for item in attachments):
+        attached = next((item for item in attachments if item['file_id'] == file['id']), None)
+        if attached and attached.get('role') == role and attached.get('visual_source') == visual_source:
             return current_response(cursor, draft['id'], owner)
         check_revision(draft, expected_revision)
-        if len(attachments) >= 4:
+        replacing_primary = role == 'primary_visual' and any(item.get('role') == 'primary_visual' for item in attachments)
+        if len(attachments) >= 4 and not replacing_primary:
             raise HTTPException(422, 'You can attach up to 4 pages to one answer.')
+        if role == 'primary_visual':
+            old_primary = [item for item in attachments
+                           if item.get('role') == 'primary_visual' and item['id'] != (attached or {}).get('id')]
+            if old_primary:
+                cursor.execute('update math_mate.response_attachments set removed_at = now() where id = any(%s)',
+                               ([item['id'] for item in old_primary],))
+                attachments = [item for item in attachments if item.get('role') != 'primary_visual']
+                # Re-number remaining active pages without transient unique collisions.
+                if attachments:
+                    ids = [item['id'] for item in attachments]
+                    cursor.execute('update math_mate.response_attachments set removed_at = now() where id = any(%s)', (ids,))
+                    for position, item in enumerate(attachments, 1):
+                        cursor.execute('''update math_mate.response_attachments
+                            set position = %s, removed_at = null where id = %s''', (position, item['id']))
         cursor.execute("update math_mate.solution_files set state = 'ready', updated_at = now() where id = %s", (file['id'],))
-        cursor.execute('''insert into math_mate.response_attachments(response_id, file_id, position, original_filename)
-            values (%s, %s, %s, %s)''', (draft['id'], file['id'], len(attachments) + 1, filename))
+        if attached:
+            cursor.execute('''update math_mate.response_attachments
+                set role = %s, visual_source = %s, original_filename = %s where id = %s''',
+                (role, visual_source, filename, attached['id']))
+        else:
+            cursor.execute('''insert into math_mate.response_attachments
+                (response_id, file_id, position, original_filename, role, visual_source)
+                values (%s, %s, %s, %s, %s, %s)''',
+                (draft['id'], file['id'], len(attachments) + 1, filename, role, visual_source))
         cursor.execute('''update math_mate.student_responses set revision = revision + 1, updated_at = now()
             where id = %s''', (draft['id'],))
         return current_response(cursor, draft['id'], owner)

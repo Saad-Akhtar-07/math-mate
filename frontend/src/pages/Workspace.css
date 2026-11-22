@@ -91,6 +91,7 @@
 .ws-editor textarea { display: block; width: 100%; min-height: 150px; padding: 14px 16px; border: 0; outline: 0; resize: vertical; background: transparent; color: var(--ink); font-size: 17px; line-height: 1.75; }
 .ws-editor textarea::placeholder { color: var(--ink-3); }
 .ws-editor textarea:disabled { cursor: not-allowed; opacity: .7; }
+.ws-editor.is-compact textarea { min-height: 92px; }
 .ws-answer-suffix { position: absolute; right: 16px; bottom: 12px; color: var(--ink-2); font-weight: 700; }
 .ws-editor-tools { padding: 6px 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; border-top: 1px solid var(--line); background: var(--surface-2); }
 .ws-maths-keys { display: flex; flex-wrap: wrap; gap: 2px; }
@@ -102,6 +103,30 @@
 .ws-photo-button:hover:not(:disabled) { border-color: var(--ink-3); }
 .ws-photo-button:disabled { opacity: .5; cursor: not-allowed; }
 .ws-photo-button.is-primary { border-color: transparent; background: var(--brand-soft); color: var(--brand-on-soft); }
+
+/* One compact visual-answer surface is shared by every standard graph/diagram. */
+.ws-visual-answer { margin: 12px 0 18px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--surface); overflow: hidden; }
+.ws-visual-choice { padding: 8px; display: flex; gap: 4px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.ws-visual-choice button, .ws-drawing-tools button { border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink-2); font: inherit; font-weight: 700; cursor: pointer; }
+.ws-visual-choice button { padding: 7px 11px; }
+.ws-visual-choice button.is-selected, .ws-drawing-tools button.is-selected { background: var(--brand-soft); color: var(--brand-on-soft); }
+.ws-visual-choice button:disabled, .ws-drawing-tools button:disabled { opacity: .45; cursor: not-allowed; }
+.ws-drawing-tools { padding: 6px 8px; display: flex; align-items: center; gap: 3px; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.ws-drawing-tools button { min-width: 40px; min-height: 38px; padding: 5px 7px; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 5px; }
+.ws-drawing-tools button span { font-size: 12px; }
+.ws-tool-spacer { flex: 1; }
+.ws-drawing-surface { padding: 8px; touch-action: none; user-select: none; }
+.ws-drawing-surface figure.diagram-block { margin: 0; border: 0; }
+.ws-drawing-surface svg { width: 100%; display: block; cursor: crosshair; }
+.ws-drawing-surface .student-visual-overlay > * { stroke-linecap: round; stroke-linejoin: round; }
+.ws-visual-help { margin: 0; padding: 0 12px 10px; color: var(--ink-3); font-size: 12px; }
+.ws-photo-primary { min-height: 110px; padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.ws-photo-primary p { margin: 0; color: var(--ink-2); }
+
+@media (max-width: 600px) {
+  .ws-drawing-tools button span { display: none; }
+  .ws-photo-primary { align-items: stretch; flex-direction: column; }
+}
 .ws-pages { display: flex; flex-direction: column; gap: 8px; }
 .ws-page-count { margin: 0; color: var(--ink-3); font-size: 13px; }
 .ws .solution-attachments { margin: 0; }

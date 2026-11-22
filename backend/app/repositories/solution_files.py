@@ -4,7 +4,7 @@
 def draft_attachments(cursor, response_ids):
     if not response_ids:
         return {}
-    cursor.execute('''select a.id, a.response_id, a.file_id, a.position, a.original_filename,
+    cursor.execute('''select a.id, a.response_id, a.file_id, a.position, a.original_filename, a.role, a.visual_source,
             f.stored_bytes as byte_size, f.original_bytes, f.media_type, f.width, f.height, f.upload_sha256
         from math_mate.response_attachments a join math_mate.solution_files f on f.id = a.file_id
         where a.response_id = any(%s) and a.removed_at is null and f.state = 'ready'
@@ -18,7 +18,7 @@ def draft_attachments(cursor, response_ids):
 def submission_attachments(cursor, submission_ids):
     if not submission_ids:
         return {}
-    cursor.execute('''select a.submission_id, a.file_id, a.position, a.original_filename,
+    cursor.execute('''select a.submission_id, a.file_id, a.position, a.original_filename, a.role, a.visual_source,
             f.stored_bytes as byte_size, f.media_type, f.width, f.height
         from math_mate.submission_attachments a join math_mate.solution_files f on f.id = a.file_id
         where a.submission_id = any(%s) order by a.position''', (submission_ids,))

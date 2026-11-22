@@ -7,6 +7,7 @@ import time
 from fastapi import HTTPException
 from psycopg.rows import dict_row
 
+from ..core.config import ai_enabled, storage_configured
 from ..db.connection import connect
 from .question_content import public_question, find_part
 
@@ -90,7 +91,9 @@ def topic_questions(topic_code: str):
             question.get("total_marks") or question.get("marks") or 0 for question in questions
         )}
 
-    return _cached(('topic', topic_code), load)
+    # Availability can change without question content changing (for example,
+    # the AI provider being disabled). Keep those variants in distinct entries.
+    return _cached(('topic', topic_code, ai_enabled(), storage_configured()), load)
 
 
 def question_part_solution(part_id: str):

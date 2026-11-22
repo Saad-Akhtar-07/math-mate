@@ -100,6 +100,7 @@ export default function QuestionPracticePage() {
   const selectedIndex = Math.max(0, visibleQuestions.findIndex((item) => item.id === requestedQuestionId))
   const emptyQuestion = createEmptyQuestion(topic || {})
   const [answers, setAnswers] = useState({})
+  const [visualAnswers, setVisualAnswers] = useState({})
   const [attachments, setAttachments] = useState({})
   const [saveStates, setSaveStates] = useState({})
   const [saveMessages, setSaveMessages] = useState({})
@@ -118,6 +119,8 @@ export default function QuestionPracticePage() {
   // On narrow screens the question and the tutor are two tabs.
   const [mobileView, setMobileView] = useState('question')
   const answersRef = useRef({})
+  const visualAnswersRef = useRef({})
+  const visualExportersRef = useRef(new Map())
   const revisionsRef = useRef(new Map())
   const conflictsRef = useRef(new Set())
   const restoreFailedRef = useRef(false)
@@ -179,6 +182,9 @@ export default function QuestionPracticePage() {
   useEffect(() => {
     setAnswers({})
     answersRef.current = {}
+    setVisualAnswers({})
+    visualAnswersRef.current = {}
+    visualExportersRef.current.clear()
     setAttachments({})
     setSaveStates({})
     setSaveMessages({})
@@ -208,6 +214,7 @@ export default function QuestionPracticePage() {
       .then(([responses, restoredReviews, restoredChatTurns]) => {
         if (cancelled) return
         const restoredAnswers = {}
+        const restoredVisualAnswers = {}
         const restoredAttachments = {}
         const restoredStates = {}
         const restoredSubmitted = {}
@@ -215,6 +222,7 @@ export default function QuestionPracticePage() {
         const local = readDrafts(topic.number)
         responses.forEach((response) => {
           restoredAnswers[response.question_part_id] = response.typed_work
+          if (response.visual_answer) restoredVisualAnswers[response.question_part_id] = response.visual_answer
           restoredAttachments[response.question_part_id] = response.attachments
           restoredStates[response.question_part_id] = 'saved'
           revisionsRef.current.set(response.question_part_id, response.revision)
@@ -226,7 +234,9 @@ export default function QuestionPracticePage() {
           }
         })
         answersRef.current = { ...restoredAnswers, ...local, ...answersRef.current }
+        visualAnswersRef.current = { ...restoredVisualAnswers, ...visualAnswersRef.current }
         setAnswers(answersRef.current)
+        setVisualAnswers(visualAnswersRef.current)
         setAttachments(restoredAttachments)
         setSaveStates((current) => ({ ...restoredStates, ...current }))
         setSubmittedParts(restoredSubmitted)
@@ -305,7 +315,7 @@ export default function QuestionPracticePage() {
     setMobileView('question')
   }
 
-  const persistAnswer = async (partId, value, status = 'draft') => {
+  const persistAnswer = async (partId, value, status = 'draft', visualAnswer = visualAnswersRef.current[partId] || null) => {
     if (!usesLocalDrafts && (restoreFailedRef.current || conflictsRef.current.has(partId))) {
       throw new Error('Choose which saved answer to keep before saving this draft.')
     }
@@ -316,9 +326,13 @@ export default function QuestionPracticePage() {
     try {
       // Serialize saves so a slow older draft cannot overwrite newer work.
       const previous = saveQueuesRef.current.get(partId) || Promise.resolve()
-      const operation = previous.catch(() => {}).then(() => usesLocalDrafts
-        ? saveDraft(topic.number, partId, value)
-        : saveStudentResponse(partId, value, revisionsRef.current.get(partId) || 0))
+      const operation = previous.catch(() => {}).then(() => {
+        if (usesLocalDrafts) return saveDraft(topic.number, partId, value)
+        const revision = revisionsRef.current.get(partId) || 0
+        return visualAnswer === null
+          ? saveStudentResponse(partId, value, revision)
+          : saveStudentResponse(partId, value, revision, visualAnswer)
+      })
       saveQueuesRef.current.set(partId, operation)
       const response = await operation
       revisionsRef.current.set(partId, response.revision)
@@ -376,6 +390,20 @@ export default function QuestionPracticePage() {
     saveTimersRef.current.set(partId, timer)
   }
 
+  const changeVisualAnswer = (partId, value) => {
+    visualAnswersRef.current = { ...visualAnswersRef.current, [partId]: value }
+    setVisualAnswers(visualAnswersRef.current)
+    setSubmittedParts((current) => ({ ...current, [partId]: false }))
+    setSaveStates((current) => ({ ...current, [partId]: 'saving' }))
+    setSaveMessages((current) => ({ ...current, [partId]: '' }))
+    clearTimeout(saveTimersRef.current.get(partId))
+    const timer = setTimeout(() => {
+      saveTimersRef.current.delete(partId)
+      persistAnswer(partId, answersRef.current[partId] || '', 'draft', value).catch(() => {})
+    }, 800)
+    saveTimersRef.current.set(partId, timer)
+  }
+
   const saveNow = (part) => {
     clearTimeout(saveTimersRef.current.get(part.id))
     saveTimersRef.current.delete(part.id)
@@ -393,7 +421,9 @@ export default function QuestionPracticePage() {
       clearTimeout(saveTimersRef.current.get(partId))
       saveTimersRef.current.delete(partId)
       answersRef.current = { ...answersRef.current, [partId]: remote.typed_work }
+      visualAnswersRef.current = { ...visualAnswersRef.current, [partId]: remote.visual_answer || null }
       setAnswers(answersRef.current)
+      setVisualAnswers(visualAnswersRef.current)
       setAttachments((current) => ({ ...current, [partId]: remote.attachments || [] }))
       setSubmittedParts((current) => ({ ...current, [partId]: Boolean(remote.submitted) }))
       setSaveStates((current) => ({ ...current, [partId]: 'saved' }))
@@ -494,11 +524,20 @@ export default function QuestionPracticePage() {
     saveTimersRef.current.delete(part.id)
     setReviewStates((current) => ({ ...current, [part.id]: 'reviewing' }))
     try {
-      const saved = await persistAnswer(
+      let saved = await persistAnswer(
         part.id,
         answersRef.current[part.id] || '',
         'ready_for_review',
       )
+      const visual = visualAnswersRef.current[part.id]
+      if (part.visualResponse && visual?.primary_source === 'canvas') {
+        const exporter = visualExportersRef.current.get(part.id)
+        if (!exporter) throw new Error('This visual answer needs a clear photo before it can be checked.')
+        const blob = await exporter()
+        const file = new File([blob], `${part.id}-visual-answer.jpg`, { type: 'image/jpeg' })
+        saved = await applyPageMutation(part.id, (revision) =>
+          uploadSolutionImage(part.id, file, revision, { role: 'primary_visual', visualSource: 'canvas' }))
+      }
       const review = await requestTutorReview(part.id, saved.revision)
       setReviews((current) => {
         const withoutDuplicate = current.filter((item) => item.id !== review.id)
@@ -622,12 +661,18 @@ export default function QuestionPracticePage() {
     const checking = reviewStates[part.id] === 'reviewing' || isPending(review?.status)
     const submitted = Boolean(submittedParts[part.id])
     const next = nextStep(part)
+    const visualBlock = part.visualResponse
+      ? [...(part.prompt || []), ...(question.prompt || [])].find((block) => block?.type === 'graph' || block?.type === 'diagram')
+      : null
+    const visiblePrompt = visualBlock ? prompt.filter((block) => block !== visualBlock) : prompt
+    const visual = visualAnswers[part.id]
     return <PartCard
       key={part.id}
       part={part}
-      prompt={prompt}
+      prompt={visiblePrompt}
       expanded={part.id === activePart.id}
-      status={partStatus({ review, submitted, checking, hasWork: Boolean((answers[part.id] || '').trim() || attachments[part.id]?.length) })}
+      status={partStatus({ review, submitted, checking, hasWork: Boolean((answers[part.id] || '').trim()
+        || attachments[part.id]?.length || visual?.objects?.length) })}
       onExpand={() => setActivePartId(part.id)}
       onActivate={() => setActivePartId(part.id)}
       mode={partMode(part)}
@@ -651,6 +696,19 @@ export default function QuestionPracticePage() {
       onCheck={() => askTutor('check', part)}
       onSubmit={() => submitAnswer(part)}
       onUpload={(files) => photoUploads.enqueue(part.id, files)}
+      visualAnswer={visual}
+      visualBlock={visualBlock}
+      onVisualAnswerChange={(value) => changeVisualAnswer(part.id, value)}
+      onPrimaryUpload={(files) => {
+        if (visualAnswersRef.current[part.id]?.primary_source !== 'photo') {
+          changeVisualAnswer(part.id, { version: 'visual-answer-v1', primary_source: 'photo', objects: [] })
+        }
+        photoUploads.enqueue(part.id, files, 'primary_visual', 'photo')
+      }}
+      registerVisualExporter={(exporter) => {
+        if (exporter) visualExportersRef.current.set(part.id, exporter)
+        else visualExportersRef.current.delete(part.id)
+      }}
       onRemoveAttachment={(attachmentId) => deleteImage(part, attachmentId)}
       uploadQueue={photoUploads.queues[part.id] || []}
       uploadBusy={Boolean(pageMutations[part.id])}

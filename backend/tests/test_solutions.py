@@ -145,9 +145,24 @@ def photo(color):
     return buffer.getvalue()
 
 
-def upload(http, headers, part_id, raw, revision):
+def upload(http, headers, part_id, raw, revision, role='supporting_work', visual_source=None):
+    data = {'expected_revision': str(revision), 'role': role}
+    if visual_source:
+        data['visual_source'] = visual_source
     return http.post(f'/api/v1/me/responses/{part_id}/attachments', headers=headers,
-        data={'expected_revision': str(revision)}, files={'image': ('page.png', raw, 'image/png')})
+        data=data, files={'image': ('page.png', raw, 'image/png')})
+
+
+def test_primary_visual_requires_and_returns_its_source(client, fake_storage):
+    http, connection = client
+    headers, part_id = user(http), part(connection)
+    draft = save(http, headers, part_id, '').json()
+    missing = upload(http, headers, part_id, photo('white'), draft['revision'], 'primary_visual')
+    assert missing.status_code == 422
+    primary = upload(http, headers, part_id, photo('white'), draft['revision'], 'primary_visual', 'photo')
+    assert primary.status_code == 200, primary.text
+    attachment = primary.json()['attachments'][0]
+    assert (attachment['role'], attachment['visual_source']) == ('primary_visual', 'photo')
 
 
 def test_four_separate_pages_retries_and_owner_isolation(client, fake_storage):

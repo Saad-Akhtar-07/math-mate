@@ -5,7 +5,7 @@ import MathText from './MathText'
 
 const finite = (value) => typeof value === 'number' && Number.isFinite(value)
 const palette = { black: 'var(--diagram-ink)', gray: 'var(--diagram-muted)', light_gray: 'var(--diagram-grid)', white: 'var(--diagram-paper)', none: 'none' }
-const color = (name, fallback) => palette[name] ?? fallback
+const color = (name, fallback) => palette[name] ?? (typeof name === 'string' && name ? name : fallback)
 const lineStyle = (element) => element.line_style === 'dashed' ? '5 4' : undefined
 
 function smoothPath(points) {
@@ -24,7 +24,7 @@ function smoothPath(points) {
   return path
 }
 
-function DrawingElement({ element, map = (point) => point, labelPlacement }) {
+export function DrawingElement({ element, map = (point) => point, labelPlacement }) {
   const stroke = color(element.stroke, 'var(--diagram-ink)')
   const fill = color(element.fill, 'none')
   const common = { stroke, fill, strokeWidth: element.stroke_width ?? 2, strokeDasharray: lineStyle(element) }
@@ -86,7 +86,7 @@ function polynomialPoints(element, axis) {
   })
 }
 
-export function StandardGraphBlock({ block }) {
+export function StandardGraphBlock({ block, overlayElements = [], svgRef, interactive = false }) {
   const clipId = useId().replaceAll(':', '')
   if (validateStandardBlock(block).length) return <div className="unsupported-block">Graph data does not match the standard format. See validation warnings.</div>
   const xAxis = block.x_axis
@@ -107,8 +107,8 @@ export function StandardGraphBlock({ block }) {
     const shape = element.type === 'polynomial' ? { ...element, type: 'curve', points: polynomialPoints(element, xAxis) } : element
     return <DrawingElement element={shape} map={map} labelPlacement={labelPlacements.get(element)} key={index} />
   }
-  return <figure className="diagram-block standard-graph">
-    <svg viewBox="0 0 560 365" role="img" aria-label={block.alt || 'Coordinate graph'}>
+  return <figure className={`diagram-block standard-graph${interactive ? ' is-interactive' : ''}`}>
+    <svg ref={svgRef} viewBox="0 0 560 365" role="img" aria-label={block.alt || 'Coordinate graph'}>
       <defs><clipPath id={clipId}><rect x={left} y={top} width={right - left} height={bottom - top} /></clipPath></defs>
       <g clipPath={`url(#${clipId})`}>{background.map(draw)}</g>
       {block.show_grid !== false && <g className="standard-graph-grid">
@@ -126,6 +126,9 @@ export function StandardGraphBlock({ block }) {
       </g>}
       {block.origin_label && <text x={axisX - 10} y={axisY + 18} className="standard-visual-label" textAnchor="end">{block.origin_label}</text>}
       {foreground.filter((element) => element.type === 'label').map((element, index) => <DrawingElement element={element} map={map} labelPlacement={labelPlacements.get(element)} key={`label${index}`} />)}
+      <g className="student-visual-overlay" clipPath={`url(#${clipId})`}>
+        {overlayElements.map((element, index) => <DrawingElement element={element} map={map} key={element.id || index} />)}
+      </g>
       {xAxis.label && <text x={(left + right) / 2} y="353" textAnchor="middle" className="standard-axis-label">{axisLabel(xAxis.label)}{xAxis.unit ? ` (${xAxis.unit})` : ''}</text>}
       {yAxis.label && <text x="22" y={(top + bottom) / 2} textAnchor="middle" transform={`rotate(-90 22 ${(top + bottom) / 2})`} className="standard-axis-label">{axisLabel(yAxis.label)}{yAxis.unit ? ` (${yAxis.unit})` : ''}</text>}
       {block.not_to_scale && <text x={right - 80} y={top - 11} className="not-scale">NOT TO SCALE</text>}
@@ -134,7 +137,7 @@ export function StandardGraphBlock({ block }) {
   </figure>
 }
 
-export function StandardDiagramBlock({ block }) {
+export function StandardDiagramBlock({ block, overlayElements = [], svgRef, interactive = false }) {
   if (validateStandardBlock({ ...block, type: 'diagram' }).length) return <div className="unsupported-block">Diagram data does not match the standard format. See validation warnings.</div>
   const sourceViewBox = block.view_box ?? []
   const [originX, originY, width, height] = sourceViewBox.length === 4
@@ -144,10 +147,13 @@ export function StandardDiagramBlock({ block }) {
   const viewport = Array.isArray(block.display_view_box) && block.display_view_box.length === 4 && block.display_view_box.every(finite) && block.display_view_box[2] > 0 && block.display_view_box[3] > 0
     ? block.display_view_box
     : [originX, originY, width, height]
-  return <figure className="diagram-block standard-diagram">
-    <svg viewBox={viewport.join(' ')} role="img" aria-label={block.alt || 'Question diagram'}>
+  return <figure className={`diagram-block standard-diagram${interactive ? ' is-interactive' : ''}`}>
+    <svg ref={svgRef} viewBox={viewport.join(' ')} role="img" aria-label={block.alt || 'Question diagram'}>
       {(block.elements ?? []).map((element, index) => <DrawingElement element={element} key={index} />)}
       {block.not_to_scale && <text x={originX + width - 10} y={originY + height - 8} textAnchor="end" className="not-scale">NOT TO SCALE</text>}
+      <g className="student-visual-overlay">
+        {overlayElements.map((element, index) => <DrawingElement element={element} key={element.id || index} />)}
+      </g>
     </svg>
     {block.caption && <figcaption><MathText>{block.caption}</MathText></figcaption>}
   </figure>

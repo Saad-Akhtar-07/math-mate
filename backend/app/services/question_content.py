@@ -16,6 +16,11 @@ def leaf_parts(part, parent_prompts=None, parent_labels=None):
         "prompt": prompts,
         "subtopicCode": (part.get("bank_alignment") or {}).get("subtopic_code") or (part.get("classification") or {}).get("subtopic_code"),
         "aiMarkable": ai_markable_response((part.get("response") or {}).get("type") or "working"),
+        "visualResponse": ((part.get("response") or {}).get("type") or "working") in {
+            'graph_plot', 'graph_sketch', 'graph_annotation', 'graph_annotation_and_short_answer',
+            'graph_annotation_and_multiple_short_answers', 'graph_drawing', 'diagram_drawing',
+            'graphical_solution', 'graph_sketch_with_annotations',
+        },
     })
     return [clean]
 

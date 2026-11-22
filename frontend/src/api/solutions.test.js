@@ -36,9 +36,22 @@ test('page upload sends an authenticated form with the expected revision', async
     assert.equal(xhr.headers.Authorization, 'Bearer private-test-token')
     assert.equal(xhr.headers['Content-Type'], undefined)
     assert.equal(xhr.body.get('expected_revision'), '4')
+    assert.deepEqual(xhr.body.getAll('role'), ['supporting_work'])
+    assert.equal(xhr.body.get('visual_source'), null)
     xhr.respond(200, { revision: 5, attachments: [] })
   }
   await uploadSolutionImage('part-a', new File(['page'], 'page.jpg', { type: 'image/jpeg' }), 4)
+})
+
+test('a primary photo declares one authoritative visual source', async () => {
+  globalThis.XMLHttpRequest = FakeXMLHttpRequest
+  FakeXMLHttpRequest.onSend = (xhr) => {
+    assert.deepEqual(xhr.body.getAll('role'), ['primary_visual'])
+    assert.deepEqual(xhr.body.getAll('visual_source'), ['photo'])
+    xhr.respond(200, { revision: 5, attachments: [] })
+  }
+  await uploadSolutionImage('part-a', new File(['graph'], 'graph.jpg', { type: 'image/jpeg' }), 4,
+    { role: 'primary_visual', visualSource: 'photo' })
 })
 
 test('checking one saved answer uses authenticated GET and supports cancellation', async () => {

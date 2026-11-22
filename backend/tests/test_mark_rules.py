@@ -75,8 +75,9 @@ def test_lost_marks_need_a_mistake_and_closed_lists_are_enforced():
     assert validate(output(['P1'], mistakes=(other,)), ctx)[1] == []
 
 
-def test_unreadable_work_awards_nothing():
+@pytest.mark.parametrize('status', ['unreadable', 'off_topic', 'needs_review'])
+def test_unmarked_work_awards_nothing(status):
     ctx = context(['B1'])
-    result, violations = validate(output([], mistakes=(), status='unreadable'), ctx)
+    result, violations = validate(output([], mistakes=(), status=status), ctx)
     assert violations == [] and result.marks_awarded is None and not result.marked
-    assert validate(output(['P1'], mistakes=(), status='unreadable'), ctx)[1]
+    assert validate(output(['P1'], mistakes=(), status=status), ctx)[1]

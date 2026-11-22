@@ -14,6 +14,12 @@ The migration `20261118000000_supabase_auth_users.sql` intentionally removes all
 
 `math_mate.questions` holds one row per curated source question. Stable source IDs are preserved, and complete nested question and collection documents remain in JSONB. `math_mate.question_parts` projects stable answerable leaf IDs for foreign keys. Source JSON under `data/` remains authoritative and `backend/scripts/import_questions.py` performs repeatable upserts.
 
+## Visual answers
+
+`student_responses.visual_answer` stores the student's current structured graph or diagram overlay. It contains versioned vector objects, never image bytes. The matching rendered preview and any photographed working remain private `solution_files`; attachment roles distinguish the single primary visual answer from supporting pages. The primary attachment also records `visual_source`: an uploaded photo is authoritative in photo mode, while a fresh canvas rendering must match canvas mode.
+
+Submitting freezes the text, visual JSON, question projection, attachment roles and visual source in `response_submissions` and `submission_attachments`. The Marker receives that immutable attempt. `unreadable`, `off_topic` and `needs_review` results have no marks and create no learning evidence.
+
 ## Applying changes
 
 Create a new numbered SQL migration for every schema change. Do not edit an applied migration or change the remote schema only through the dashboard.

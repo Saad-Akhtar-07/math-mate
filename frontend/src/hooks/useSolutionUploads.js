@@ -84,7 +84,10 @@ export default function useSolutionUploads(options) {
           patch(id, { status: 'checking', percent: null })
           lastResponse = await config.read(partId, { signal })
           if (!current()) return false
-          return !!fingerprint && lastResponse.attachments.some((page) => page.upload_sha256 === fingerprint)
+          return !!fingerprint && lastResponse.attachments.some((page) =>
+            page.upload_sha256 === fingerprint
+              && (page.role === item.role || (!page.role && item.role === 'supporting_work'))
+              && (item.role !== 'primary_visual' || page.visual_source === item.visualSource))
         }
         // A previous request can have committed even if its response was lost.
         if (isRetry && item.uncertain && await confirm()) { saved(id); continue }
@@ -92,7 +95,8 @@ export default function useSolutionUploads(options) {
         try {
           patch(id, { status: 'uploading', percent: 0 })
           lastResponse = await config.send(partId, item.file, {
-            signal, onProgress: ({ phase, percent }) => patch(id, { status: phase, percent }),
+            signal, role: item.role, visualSource: item.visualSource,
+            onProgress: ({ phase, percent }) => patch(id, { status: phase, percent }),
           })
           if (!current()) return
           saved(id)
@@ -126,17 +130,23 @@ export default function useSolutionUploads(options) {
     }
   }
 
-  const enqueue = (partId, files) => {
+  const enqueue = (partId, files, role = 'supporting_work', visualSource = null) => {
     const config = optionsRef.current
     if (!files.length || active.current.has(partId) || !config.canStart(partId)) return
+    if (role === 'primary_visual') files = files.slice(0, 1)
+    if (role === 'primary_visual' && !['canvas', 'photo'].includes(visualSource)) {
+      config.onError(partId, new Error('Choose whether this visual answer comes from the canvas or a photo.'))
+      return
+    }
     const remaining = (queueRef.current[partId] || []).filter(pending)
     let validation = ''
-    if ((config.attachments[partId] || []).length + remaining.length + files.length > 4) validation = 'You can attach up to 4 pages to one answer.'
+    const replacing = role === 'primary_visual' && (config.attachments[partId] || []).some((item) => item.role === 'primary_visual')
+    if ((config.attachments[partId] || []).length - (replacing ? 1 : 0) + remaining.length + files.length > 4) validation = 'You can attach up to 4 pages to one answer.'
     else if (files.some((file) => file.size > 10 * 1024 * 1024)) validation = 'Each original image must be 10 MB or smaller.'
     else if (files.some((file) => file.type && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type))) validation = 'Choose JPEG, PNG or WebP photos.'
     if (validation) { config.onError(partId, new Error(validation)); return }
     ;(queueRef.current[partId] || []).filter((item) => !pending(item)).forEach(release)
-    const added = files.map((file) => ({ id: `photo-${++sequence.current}`, file, name: file.name,
+    const added = files.map((file) => ({ id: `photo-${++sequence.current}`, file, name: file.name, role, visualSource,
       previewUrl: typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : '',
       status: 'queued', attempts: 0, percent: null, retryable: true, uncertain: false }))
     publish(partId, [...remaining, ...added])

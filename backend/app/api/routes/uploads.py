@@ -14,12 +14,14 @@ router = APIRouter(prefix='/api/v1/me')
 
 @router.post('/responses/{part_id}/attachments')
 def upload_page(part_id: str, owner: User, image: UploadFile,
-                expected_revision: Annotated[int, Form(gt=0)]):
+                expected_revision: Annotated[int, Form(gt=0)],
+                role: Annotated[str, Form(pattern='^(primary_visual|supporting_work)$')] = 'supporting_work',
+                visual_source: Annotated[str | None, Form(pattern='^(canvas|photo)$')] = None):
     try:
         raw = image.file.read(MAX_UPLOAD_BYTES + 1)
     finally:
         image.file.close()
-    return uploads.upload_page(part_id, owner, raw, image.filename, expected_revision)
+    return uploads.upload_page(part_id, owner, raw, image.filename, expected_revision, role, visual_source)
 
 
 @router.delete('/responses/{part_id}/attachments/{attachment_id}')

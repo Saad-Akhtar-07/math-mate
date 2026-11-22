@@ -11,6 +11,7 @@ import SolutionUploadQueue from '../SolutionUploadQueue.jsx'
 import TutorText from '../TutorText.jsx'
 import MarkedWorking from './MarkedWorking.jsx'
 import QuestionBlock from './QuestionBlock.jsx'
+import VisualResponseEditor from './VisualResponseEditor.jsx'
 
 const MAX_PAGES = 4
 
@@ -60,7 +61,7 @@ const PHOTO_HELP = 'JPEG, PNG or WebP. Up to 4 pages, 10 MB each.'
  * directly (capture="environment"; one page per shot) and Upload opens the gallery.
  * Elsewhere one button opens the file picker. All paths feed the same upload queue.
  */
-function PhotoPicker({ disabled, uploading, onPick }) {
+function PhotoPicker({ disabled, uploading, onPick, primary = false }) {
   const touch = useMediaQuery('(pointer: coarse)')
   const cameraRef = useRef(null)
   const filesRef = useRef(null)
@@ -71,19 +72,19 @@ function PhotoPicker({ disabled, uploading, onPick }) {
   }
   const icon = (Icon) => uploading ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <Icon size={17} aria-hidden="true" />
   return <div className="ws-photo-actions">
-    <input ref={filesRef} className="sr-only" type="file" aria-label="Upload solution pages" disabled={disabled}
-      accept={ACCEPTED_IMAGES} multiple onChange={pick} />
+    <input ref={filesRef} className="sr-only" type="file" aria-label={primary ? 'Upload visual answer' : 'Upload solution pages'} disabled={disabled}
+      accept={ACCEPTED_IMAGES} multiple={!primary} onChange={pick} />
     {touch ? <>
-      <input ref={cameraRef} className="sr-only" type="file" aria-label="Take a photo of your working" disabled={disabled}
+      <input ref={cameraRef} className="sr-only" type="file" aria-label={primary ? 'Photograph visual answer' : 'Take a photo of your working'} disabled={disabled}
         accept={ACCEPTED_IMAGES} capture="environment" onChange={pick} />
       <button type="button" className="ws-photo-button is-primary" disabled={disabled} title={PHOTO_HELP} onClick={() => cameraRef.current?.click()}>
-        {icon(Camera)}Take photo
+        {icon(Camera)}{primary ? 'Photograph answer' : 'Take photo'}
       </button>
       <button type="button" className="ws-photo-button" disabled={disabled} title={PHOTO_HELP} onClick={() => filesRef.current?.click()}>
         {icon(ImageUp)}Upload
       </button>
     </> : <button type="button" className="ws-photo-button" disabled={disabled} title={PHOTO_HELP} onClick={() => filesRef.current?.click()}>
-      {icon(Camera)}Add photo of working
+      {icon(Camera)}{primary ? 'Add answer photo' : 'Add photo of working'}
     </button>}
   </div>
 }
@@ -103,10 +104,10 @@ function WorkingEditor({ part, value, ready, onChange, uploadsEnabled, pageCount
     })
   }
   const photoDisabled = !ready || pageCount >= MAX_PAGES || uploading
-  return <div className="ws-editor">
+  return <div className={`ws-editor${part.visualResponse ? ' is-compact' : ''}`}>
     <div className="ws-editor-input">
-      <textarea ref={textareaRef} id={`${part.id}-answer`} rows="5" maxLength="20000" spellCheck="false" disabled={!ready}
-        value={value} onChange={(event) => onChange(event.target.value)} placeholder="Write each step on a new line" />
+      <textarea ref={textareaRef} id={`${part.id}-answer`} rows={part.visualResponse ? 3 : 5} maxLength="20000" spellCheck="false" disabled={!ready}
+        value={value} onChange={(event) => onChange(event.target.value)} placeholder={part.visualResponse ? 'Add any calculations used' : 'Write each step on a new line'} />
       {part.answer_suffix && <span className="ws-answer-suffix"><MathText>{part.answer_suffix}</MathText></span>}
     </div>
     <div className="ws-editor-tools">
@@ -273,10 +274,15 @@ export default function PartCard({
   review, checking, checkError, assisted, tutorBusy, onNext, nextLabel,
   onAnswerChange, onCheck, onSubmit, onActivate,
   onUpload, onRemoveAttachment, uploadQueue = [], uploadBusy, uploadBlocked, onRetryUpload, onDiscardUpload,
+  visualAnswer, visualBlock, onVisualAnswerChange, onPrimaryUpload, registerVisualExporter,
 }) {
   const [panel, setPanel] = useState('')
   const pendingPhotos = uploadQueue.filter((item) => item.status !== 'saved').length
-  const hasWork = Boolean(answer.trim() || attachments.length)
+  const primaryPhoto = attachments.find((item) => item.role === 'primary_visual' && item.visual_source === 'photo')
+  const supportingPages = attachments.filter((item) => item.role !== 'primary_visual')
+  const canvasWork = visualAnswer?.primary_source === 'canvas' && visualAnswer.objects?.length > 0
+  const visualReady = !part.visualResponse || (visualAnswer?.primary_source === 'photo' ? Boolean(primaryPhoto) : canvasWork)
+  const hasWork = Boolean(answer.trim() || attachments.length || canvasWork)
   const hasUploadError = uploadQueue.some((item) => item.status === 'failed' && item.error === saveMessage)
   const togglePanel = (name) => setPanel((current) => (current === name ? '' : name))
 
@@ -292,7 +298,8 @@ export default function PartCard({
   }
 
   const action = mode === 'local' ? null : primaryAction({ mode, review, submitted, checking, saveState })
-  const actionDisabled = !action || action.blocked || !ready || !hasWork || pendingPhotos > 0
+  const actionDisabled = !action || action.blocked || !ready || !hasWork || !visualReady
+    || (part.visualResponse && !uploadsEnabled) || pendingPhotos > 0
     || saveState === 'uploading' || (mode === 'check' && tutorBusy)
   const statusText = saveState === 'error' ? saveMessage
     : saveState === 'saving' ? saveMessage || 'Saving…' : saveMessage || (saveState === 'saved' ? 'Saved' : '')
@@ -304,9 +311,18 @@ export default function PartCard({
     </div>
     {prompt.length > 0 && <div className="question-part-prompt">{prompt.map((block, index) => <QuestionBlock block={block} key={index} />)}</div>}
 
+    {part.visualResponse && (visualBlock
+      ? <VisualResponseEditor block={visualBlock} value={visualAnswer} ready={ready} uploadsEnabled={uploadsEnabled} onChange={onVisualAnswerChange}
+          onPickPhoto={onPrimaryUpload} photoReady={Boolean(primaryPhoto)} registerExporter={registerVisualExporter} />
+      : <div className="ws-visual-answer ws-photo-primary">
+          <p>{primaryPhoto ? 'Your complete visual answer is ready.' : 'Upload one clear photo showing the complete graph or diagram.'}</p>
+          <PhotoPicker primary disabled={!ready || !uploadsEnabled || uploadBusy} uploading={uploadBusy} onPick={(files) => onPrimaryUpload(files.slice(0, 1))} />
+        </div>)}
+    {part.visualResponse && !uploadsEnabled && <p className="ws-note">Visual checking is temporarily unavailable. Your drawing can still be saved.</p>}
+
     <div className="ws-working">
       <div className="ws-working-head">
-        <label htmlFor={`${part.id}-answer`}>Your working</label>
+        <label htmlFor={`${part.id}-answer`}>{part.visualResponse ? 'Calculations or explanation (optional)' : 'Your working'}</label>
         {!hasUploadError && statusText && <span className={`ws-save-status${saveState === 'error' ? ' is-error' : ''}`} role={saveState === 'error' ? 'alert' : 'status'}>
           {saveState === 'saved' && <Check size={14} strokeWidth={2.4} aria-hidden="true" />}{statusText}
         </span>}
@@ -316,7 +332,7 @@ export default function PartCard({
     </div>
 
     <SolutionUploadQueue items={uploadQueue} busy={uploadBusy} blocked={uploadBlocked} onRetry={onRetryUpload} onRemove={onDiscardUpload} />
-    <SavedPages attachments={attachments} ready={ready} onRemove={onRemoveAttachment} />
+    <SavedPages attachments={supportingPages} ready={ready} onRemove={onRemoveAttachment} />
 
     {mode === 'submit' && aiMarkable === false && <p className="ws-note">AI checking is not available for graph or diagram answers yet. Submit your work, then compare it with the mark scheme.</p>}
     {mode === 'check' && <ResultStrip key={review?.id || 'none'} review={review}checking={checking} error={checkError} assisted={assisted} onNext={onNext} nextLabel={nextLabel} />}

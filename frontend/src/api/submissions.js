@@ -67,13 +67,15 @@ export function getStudentResponse(partId, options = {}) {
   return authenticatedRequest(`/me/responses/${encodeURIComponent(partId)}`, options)
 }
 
-export function saveStudentResponse(questionPartId, typedWork, expectedRevision = 0) {
+export function saveStudentResponse(questionPartId, typedWork, expectedRevision = 0, visualAnswer = null) {
+  const body = { typed_work: typedWork, expected_revision: expectedRevision }
+  if (visualAnswer !== null) body.visual_answer = visualAnswer
   return authenticatedRequest(
     `/me/responses/${encodeURIComponent(questionPartId)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ typed_work: typedWork, expected_revision: expectedRevision }),
+      body: JSON.stringify(body),
     },
   )
 }
@@ -96,6 +98,8 @@ export async function uploadSolutionImage(questionPartId, file, expectedRevision
   const form = new FormData()
   form.append('image', file)
   form.append('expected_revision', String(expectedRevision))
+  form.append('role', options.role || 'supporting_work')
+  if (options.visualSource) form.append('visual_source', options.visualSource)
   return uploadMultipart(`${API_BASE_URL}${API_PREFIX}/me/responses/${encodeURIComponent(questionPartId)}/attachments`, {
     body: form, headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
     signal: options.signal, onProgress: options.onProgress,
