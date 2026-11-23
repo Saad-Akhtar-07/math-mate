@@ -4,6 +4,7 @@ const API_PREFIX = '/api/v1'
 const REQUEST_TIMEOUT_MS = import.meta.env.PROD ? 90000 : 10000
 
 const questionBankCache = new Map()
+const questionDetailCache = new Map()
 const questionSummaryCache = new Map()
 
 async function fetchContent(path) {
@@ -40,7 +41,12 @@ function cachedFetch(cache, key, path) {
 
 export function getQuestionBank(topicNumber) {
   const key = String(topicNumber)
-  return cachedFetch(questionBankCache, key, `/topics/${encodeURIComponent(key)}/questions`)
+  return cachedFetch(questionBankCache, key, `/topics/${encodeURIComponent(key)}/questions/catalogue`)
+}
+
+export function getQuestionDetail(questionId) {
+  const key = String(questionId)
+  return cachedFetch(questionDetailCache, key, `/questions/${encodeURIComponent(key)}`)
 }
 
 export function getQuestionPartSolution(questionPartId) {
@@ -52,18 +58,7 @@ export function getQuestionSummary() {
 }
 
 export function preloadQuestionContent() {
-  // Fetch the tiny summary first, then warm one bank at a time. Navigation
-  // shares any in-flight request, while startup never floods the DB pool.
-  void getQuestionSummary()
-    .then(async (summary) => {
-      const counts = summary?.topic_counts || {}
-      const publishedFirst = ['1', '2']
-      const remaining = Object.keys(counts).filter((code) => !publishedFirst.includes(code))
-      for (const topicCode of [...publishedFirst, ...remaining]) {
-        if ((counts[topicCode] || 0) > 0) {
-          await getQuestionBank(topicCode).catch(() => null)
-        }
-      }
-    })
-    .catch(() => {})
+  // Startup needs only the tiny count summary. A topic catalogue is fetched
+  // when the learner opens it; complete question content is fetched per question.
+  void getQuestionSummary().catch(() => {})
 }

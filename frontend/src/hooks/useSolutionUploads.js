@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { fileFingerprint } from '../api/uploadTransport.js'
+import { fileFingerprint, prepareImageFile } from '../api/uploadTransport.js'
 
 const canRetry = (error) => ![400, 401, 403, 404, 413, 415, 422].includes(error.status)
 const pending = (item) => item.status !== 'saved'
@@ -59,7 +59,7 @@ export default function useSolutionUploads(options) {
     const saved = (id) => {
       const item = find(id)
       release(item)
-      patch(id, { status: 'saved', file: null, previewUrl: '', error: '', uncertain: false })
+      patch(id, { status: 'saved', file: null, preparedFile: null, previewUrl: '', error: '', uncertain: false })
     }
     let lastResponse
     let processingId = ids[0]
@@ -73,9 +73,16 @@ export default function useSolutionUploads(options) {
         if (!item || !item.file || item.status === 'saved') continue
         const isRetry = item.attempts > 0
         patch(id, { status: 'preparing', attempts: item.attempts + 1, error: '', percent: null })
+        if (!item.preparedFile) {
+          const preparedFile = await prepareImageFile(item.file)
+          if (!current()) return
+          patch(id, { preparedFile })
+          item = find(id)
+        }
+        const uploadFile = item.preparedFile || item.file
         let fingerprint = item.fingerprint
         if (!fingerprint) {
-          try { fingerprint = await fileFingerprint(item.file) } catch { /* Server retries still deduplicate without a local checksum. */ }
+          try { fingerprint = await fileFingerprint(uploadFile) } catch { /* Server retries still deduplicate without a local checksum. */ }
           if (!current()) return
           patch(id, { fingerprint })
         }
@@ -94,7 +101,7 @@ export default function useSolutionUploads(options) {
         if (!current()) return
         try {
           patch(id, { status: 'uploading', percent: 0 })
-          lastResponse = await config.send(partId, item.file, {
+          lastResponse = await config.send(partId, uploadFile, {
             signal, role: item.role, visualSource: item.visualSource,
             onProgress: ({ phase, percent }) => patch(id, { status: phase, percent }),
           })

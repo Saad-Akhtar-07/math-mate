@@ -1,7 +1,7 @@
 import { BookOpenCheck, CircleDashed } from 'lucide-react'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { getQuestionBank } from '../api/content.js'
+import * as contentApi from '../api/content.js'
 import {
   getStudentResponses,
   getStudentResponse,
@@ -28,6 +28,7 @@ import './PracticeWorkspace.css'
 import './Workspace.css'
 
 const TUTOR_OPEN_STORAGE_KEY = 'practice-tutor-open-v1'
+const SERVER_SAVE_DELAY_MS = 1500
 
 function storedTutorOpen() {
   try { return localStorage.getItem(TUTOR_OPEN_STORAGE_KEY) !== 'false' }
@@ -78,6 +79,9 @@ export default function QuestionPracticePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const topic = syllabus.find((item) => item.number === topicNumber)
   const [questionBank, setQuestionBank] = useState(null)
+  const [questionDetail, setQuestionDetail] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
   const [isLoading, setIsLoading] = useState(Boolean(topic))
   const [loadError, setLoadError] = useState('')
   const questions = questionBank?.questions || []
@@ -98,6 +102,7 @@ export default function QuestionPracticePage() {
   })
   const requestedQuestionId = searchParams.get('question')
   const selectedIndex = Math.max(0, visibleQuestions.findIndex((item) => item.id === requestedQuestionId))
+  const selectedQuestion = visibleQuestions[selectedIndex] || visibleQuestions[0] || null
   const emptyQuestion = createEmptyQuestion(topic || {})
   const [answers, setAnswers] = useState({})
   const [visualAnswers, setVisualAnswers] = useState({})
@@ -129,7 +134,9 @@ export default function QuestionPracticePage() {
   const saveQueuesRef = useRef(new Map())
   const busyPartsRef = useRef(new Set())
   const questionColumnRef = useRef(null)
-  const question = hasQuestions ? (visibleQuestions[selectedIndex] || visibleQuestions[0] || emptyQuestion) : emptyQuestion
+  const bundledQuestion = Array.isArray(selectedQuestion?.prompt) ? selectedQuestion : null
+  const question = selectedQuestion && questionDetail?.id === selectedQuestion.id
+    ? questionDetail : bundledQuestion || emptyQuestion
   // Until the learner picks a part, open the first one not yet answered with full marks.
   const activePart = question.parts.find((part) => part.id === activePartId) || firstOpenPart(question.parts, reviews)
 
@@ -166,7 +173,7 @@ export default function QuestionPracticePage() {
     setIsLoading(true)
     setLoadError('')
     setQuestionBank(null)
-    getQuestionBank(topic.number)
+    contentApi.getQuestionBank(topic.number)
       .then((bank) => {
         if (!cancelled) setQuestionBank(bank)
       })
@@ -178,6 +185,37 @@ export default function QuestionPracticePage() {
       })
     return () => { cancelled = true }
   }, [topic])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!selectedQuestion?.id) {
+      setQuestionDetail(null)
+      setDetailLoading(false)
+      setDetailError('')
+      return undefined
+    }
+    // Test fixtures and the legacy compatibility endpoint may already contain
+    // the full prompt. The production catalogue intentionally does not.
+    if (Array.isArray(selectedQuestion.prompt)) {
+      setQuestionDetail(selectedQuestion)
+      setDetailLoading(false)
+      setDetailError('')
+      return undefined
+    }
+    setQuestionDetail((current) => current?.id === selectedQuestion.id ? current : null)
+    setDetailLoading(true)
+    setDetailError('')
+    contentApi.getQuestionDetail(selectedQuestion.id)
+      .then((detail) => {
+        if (cancelled) return
+        setQuestionDetail(detail)
+        const next = visibleQuestions[selectedIndex + 1]
+        if (next) void contentApi.getQuestionDetail(next.id).catch(() => {})
+      })
+      .catch((error) => { if (!cancelled) setDetailError(error.message) })
+      .finally(() => { if (!cancelled) setDetailLoading(false) })
+    return () => { cancelled = true }
+  }, [selectedQuestion?.id])
 
   useEffect(() => {
     setAnswers({})
@@ -380,13 +418,15 @@ export default function QuestionPracticePage() {
     } catch {
       setResponseLoadError('Browser recovery storage is unavailable. Keep this page open until your work is saved to the server.')
     }
-    setSaveStates((current) => ({ ...current, [partId]: 'saving' }))
-    setSaveMessages((current) => ({ ...current, [partId]: '' }))
+    // Recovery is already on this device. Show network activity only when the
+    // debounced server request actually begins, rather than on every keystroke.
+    setSaveStates((current) => ({ ...current, [partId]: 'idle' }))
+    setSaveMessages((current) => ({ ...current, [partId]: 'Saved on this device' }))
     clearTimeout(saveTimersRef.current.get(partId))
     const timer = setTimeout(() => {
       saveTimersRef.current.delete(partId)
       persistAnswer(partId, value).catch(() => {})
-    }, 800)
+    }, SERVER_SAVE_DELAY_MS)
     saveTimersRef.current.set(partId, timer)
   }
 
@@ -394,13 +434,13 @@ export default function QuestionPracticePage() {
     visualAnswersRef.current = { ...visualAnswersRef.current, [partId]: value }
     setVisualAnswers(visualAnswersRef.current)
     setSubmittedParts((current) => ({ ...current, [partId]: false }))
-    setSaveStates((current) => ({ ...current, [partId]: 'saving' }))
-    setSaveMessages((current) => ({ ...current, [partId]: '' }))
+    setSaveStates((current) => ({ ...current, [partId]: 'idle' }))
+    setSaveMessages((current) => ({ ...current, [partId]: 'Drawing changes waiting to sync' }))
     clearTimeout(saveTimersRef.current.get(partId))
     const timer = setTimeout(() => {
       saveTimersRef.current.delete(partId)
       persistAnswer(partId, answersRef.current[partId] || '', 'draft', value).catch(() => {})
-    }, 800)
+    }, SERVER_SAVE_DELAY_MS)
     saveTimersRef.current.set(partId, timer)
   }
 
@@ -739,7 +779,7 @@ export default function QuestionPracticePage() {
             </div>
           </section>)}
 
-          {visibleQuestions.length ? <article className="ws-paper" key={question.id}>
+          {visibleQuestions.length && (questionDetail?.id === selectedQuestion?.id || bundledQuestion) ? <article className="ws-paper" key={question.id}>
             <div className="ws-meta">
               {question.paper && <span className="ws-meta-chip">{question.paper.session} {question.paper.year} · Paper {question.paper.component} · Q{question.number}</span>}
               {question.paper && <span className="ws-meta-chip">{question.paper.calculatorAllowed ? 'Calculator' : 'Non-calculator'}</span>}
@@ -757,7 +797,7 @@ export default function QuestionPracticePage() {
                 {group.items.map(renderPart)}
               </div> : <Fragment key={group.key}>{group.items.map(renderPart)}</Fragment>)}
             </div>
-          </article> : <QuestionPlaceholder topic={topic} loading={isLoading} error={loadError} filtered={filtered} backTo={backTo} />}
+          </article> : <QuestionPlaceholder topic={topic} loading={isLoading || detailLoading} error={loadError || detailError} filtered={filtered} backTo={backTo} />}
         </div>
       </main>
       {tutorOpen && <TutorResizer />}

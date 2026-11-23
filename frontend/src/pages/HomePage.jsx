@@ -38,7 +38,7 @@ function ContinueCard({ topic, item, responses, reviews }) {
     {hasParts && <ul className="hm-parts" aria-label="Parts of this question">
       {question.parts.map((part) => {
         const response = responses.get(part.id)
-        const status = partStatus({ review: reviews.get(part.id), submitted: response?.submitted, hasWork: Boolean(response?.typed_work?.trim() || response?.attachments?.length) })
+        const status = partStatus({ review: reviews.get(part.id), submitted: response?.submitted, hasWork: Boolean(response?.has_work || response?.typed_work?.trim() || response?.attachments?.length) })
         const label = status.kind === 'draft' ? 'Working saved, not checked yet' : status.label
         return <li key={part.id} className={`db-chip is-${status.tone}`}>{status.kind === 'full' && <Check size={14} strokeWidth={2.6} aria-hidden="true" />}{part.label} {label}</li>
       })}

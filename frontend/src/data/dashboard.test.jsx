@@ -5,11 +5,11 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import App from '../App.jsx'
 import { getQuestionBank, getQuestionSummary } from '../api/content.js'
-import { getStudentResponses, getTutorChatTurns, getTutorReviews } from '../api/submissions.js'
+import { getDashboardProgress } from '../api/submissions.js'
 
 vi.mock('../api/content.js', () => ({ getQuestionBank: vi.fn(), getQuestionSummary: vi.fn(), getQuestionPartSolution: vi.fn() }))
 vi.mock('../api/submissions.js', async (original) => ({
-  ...await original(), getStudentResponses: vi.fn(), getTutorReviews: vi.fn(), getTutorChatTurns: vi.fn(),
+  ...await original(), getDashboardProgress: vi.fn(),
 }))
 vi.mock('../auth/AuthContext.jsx', () => ({ useAuth: () => ({ configured: true, loading: false, session: { user: { email: 'student@example.com' } }, user: { email: 'student@example.com' }, signOut: vi.fn() }) }))
 
@@ -29,17 +29,17 @@ const questions = [
 ]
 const now = Date.now()
 const hoursAgo = (hours) => new Date(now - hours * 3600000).toISOString()
-const review = (part, awarded, created) => ({ id: `r-${part}`, question_part_id: part, status: 'completed', outcome: 'marked',
-  marks_awarded: awarded, marks_maximum: 2, attempt_number: 1, created_at: created })
+const review = (part, awarded, created, independent = true) => ({ id: `r-${part}`, question_part_id: part, status: 'completed', outcome: 'marked',
+  marks_awarded: awarded, marks_maximum: 2, attempt_number: 1, created_at: created, independent })
 
 function renderAt(path) {
   return render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
 }
 function returningStudent() {
-  getStudentResponses.mockResolvedValue([{ question_part_id: 'qa-b', typed_work: '2x + 3', revision: 1, attachments: [], submitted: false, updated_at: hoursAgo(0.1) }])
-  getTutorReviews.mockResolvedValue([review('qa-a', 2, hoursAgo(1)), review('qb-a', 0, hoursAgo(30)), review('qc-a', 1, hoursAgo(2)), review('qd-a', 2, hoursAgo(3))])
-  // A hint before (a) was checked makes that full mark assisted.
-  getTutorChatTurns.mockResolvedValue([{ id: 't1', question_part_id: 'qa-a', status: 'completed', teaching_move: 'small_hint', created_at: hoursAgo(1.5) }])
+  getDashboardProgress.mockResolvedValue({
+    responses: [{ question_part_id: 'qa-b', has_work: true, submitted: false, updated_at: hoursAgo(0.1) }],
+    assessments: [review('qa-a', 2, hoursAgo(1), false), review('qb-a', 0, hoursAgo(30)), review('qc-a', 1, hoursAgo(2)), review('qd-a', 2, hoursAgo(3))],
+  })
 }
 
 beforeEach(() => {
@@ -48,9 +48,7 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
   getQuestionSummary.mockResolvedValue({ topic_counts: { 2: questions.length }, subtopic_counts: {} })
   getQuestionBank.mockResolvedValue({ questions })
-  getStudentResponses.mockResolvedValue([])
-  getTutorReviews.mockResolvedValue([])
-  getTutorChatTurns.mockResolvedValue([])
+  getDashboardProgress.mockResolvedValue({ responses: [], assessments: [] })
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -63,8 +61,7 @@ test('a new signed-in student gets easy first questions', async () => {
   ])
   expect(screen.queryByRole('region', { name: /Writing an expression/ })).toBeNull()
   expect(screen.getByText('Check an answer to see your score.')).toBeTruthy()
-  expect(getStudentResponses).toHaveBeenCalled()
-  expect(getTutorReviews).toHaveBeenCalled()
+  expect(getDashboardProgress).toHaveBeenCalled()
 })
 
 test('a returning student sees where to continue, suggestions with reasons and their week', async () => {
@@ -145,13 +142,13 @@ test('progress invites a new student to start', async () => {
   renderAt('/progress')
   expect(await screen.findByRole('heading', { name: 'Your progress will appear here' })).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Start practising' }).getAttribute('href')).toBe('/topic/2')
-  expect(getTutorChatTurns).toHaveBeenCalled()
+  expect(getDashboardProgress).toHaveBeenCalled()
 })
 
-test('progress says so when tutor history is unavailable instead of guessing', async () => {
+test('progress reports when its compact projection is unavailable', async () => {
   returningStudent()
-  getTutorChatTurns.mockRejectedValue(new Error('offline'))
+  getDashboardProgress.mockRejectedValue(new Error('offline'))
   renderAt('/progress')
-  await waitFor(() => expect(screen.getByText('Tutor history could not be loaded')).toBeTruthy())
-  expect(screen.getByRole('region', { name: 'Full marks without help' }).querySelector('.pg-number').textContent).toBe('–')
+  await waitFor(() => expect(screen.getByText('Your progress could not be loaded right now. Please try again later.')).toBeTruthy())
+  expect(screen.queryByRole('region', { name: 'Full marks without help' })).toBeNull()
 })

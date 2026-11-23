@@ -22,7 +22,7 @@ export function responsesByPart(responses = []) {
 const isMarked = (review) => review?.status === 'completed' && review.outcome === 'marked'
 
 function hasWork(response, review) {
-  return Boolean(review || response?.submitted || response?.typed_work?.trim() || response?.attachments?.length)
+  return Boolean(review || response?.submitted || response?.has_work || response?.typed_work?.trim() || response?.attachments?.length)
 }
 
 export function questionMarks(question) {

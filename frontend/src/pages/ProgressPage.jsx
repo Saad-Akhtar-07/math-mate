@@ -1,35 +1,15 @@
 import { ArrowRight } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getTutorChatTurns } from '../api/submissions.js'
 import useLearnerProgress from '../hooks/useLearnerProgress.js'
 import { useAvailableTopics, useTopicQuestions } from '../hooks/useQuestionContent.js'
 import { workspacePath } from '../utils/paths.js'
 import { focusSubtopic, relativeDay, subtopicStats, summariseProgress } from '../utils/progress.js'
-import { isFullMarks, wasAssisted } from '../utils/workspace.js'
+import { isFullMarks } from '../utils/workspace.js'
 import './Dashboard.css'
 import './Progress.css'
 
 const RECENT_LIMIT = 8
-
-// Tutor history decides whether full marks were earned without help. Read only, like the progress itself.
-function useTutorTurns(topicNumber, questions, ready) {
-  const [state, setState] = useState({ key: '', turns: [], error: false })
-  const aiEnabled = questions.some((question) => !question.localDraftOnly && question.capabilities?.aiTutor !== false)
-  const key = `${topicNumber}:${aiEnabled}`
-  useEffect(() => {
-    if (!ready) return undefined
-    if (!aiEnabled) {
-      setState({ key, turns: [], error: false })
-      return undefined
-    }
-    let active = true
-    getTutorChatTurns(topicNumber).then((turns) => { if (active) setState({ key, turns, error: false }) })
-      .catch(() => { if (active) setState({ key, turns: [], error: true }) })
-    return () => { active = false }
-  }, [key, ready])
-  return state.key === key ? state : { turns: [], error: false, loading: true }
-}
 
 function resultChip(review) {
   if (review.status === 'pending' || review.status === 'processing') return { tone: 'brand', label: 'Checking…' }
@@ -47,7 +27,6 @@ export default function ProgressPage() {
   const { questions, loading, error } = useTopicQuestions(topic?.number)
   const progress = useLearnerProgress(topic?.number, questions, loading || available.loading)
   const ready = Boolean(topic) && !loading && !progress.loading
-  const tutor = useTutorTurns(topic?.number, questions, ready)
 
   useEffect(() => {
     document.title = 'Your progress | Math Mate'
@@ -60,7 +39,7 @@ export default function ProgressPage() {
   const partInfo = new Map(questions.flatMap((question) => question.parts.map((part) => [part.id, { question, part }])))
   const independentFull = (partIds) => partIds.filter((id) => {
     const review = progress.reviews.get(id)
-    return isFullMarks(review) && !wasAssisted(tutor.turns, id, review)
+    return isFullMarks(review) && review.independent !== false
   }).length
   const allParts = questions.flatMap((question) => question.parts.map((part) => part.id))
   const tried = stats.filter((item) => item.tried > 0)
@@ -69,7 +48,7 @@ export default function ProgressPage() {
   const recent = [...progress.reviewList].filter((review) => partInfo.has(review.question_part_id))
     .sort((left, right) => new Date(right.created_at) - new Date(left.created_at)).slice(0, RECENT_LIMIT)
   const triedShare = questions.length ? Math.round((100 * summary.tried) / questions.length) : 0
-  const helpKnown = !tutor.error && !tutor.loading
+  const helpKnown = true
 
   return <main className="db-page" id="main-content" tabIndex="-1">
     <div className="db-inner">
@@ -110,7 +89,7 @@ export default function ProgressPage() {
           <section className="db-card pg-tile" aria-labelledby="tile-independent">
             <h2 id="tile-independent">Full marks without help</h2>
             <p className="pg-number">{helpKnown ? independentFull(allParts) : '–'}</p>
-            <p className="db-muted">{tutor.error ? 'Tutor history could not be loaded' : 'Answers you got fully right on your own'}</p>
+            <p className="db-muted">Answers you got fully right on your own</p>
           </section>
         </div>
 
@@ -149,7 +128,7 @@ export default function ProgressPage() {
             const { question, part } = partInfo.get(review.question_part_id)
             const subtopic = topic.subtopics.find((entry) => question.subtopicCodes?.includes(entry.code))
             const chip = resultChip(review)
-            const helped = wasAssisted(tutor.turns, part.id, review)
+            const helped = review.independent === false
             return <li key={review.id}><Link className="pg-attempt" to={workspacePath(topic.number, question, subtopic?.code)}>
               <span className="pg-attempt-when">{relativeDay(review.created_at)}<span>{new Date(review.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span></span>
               <span className="pg-attempt-main"><strong>{question.title}{question.parts.length > 1 ? ` · ${part.label}` : ''}</strong>

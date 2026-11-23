@@ -1,6 +1,8 @@
 """Verified Supabase authentication and private-response dependencies."""
 
 from functools import lru_cache
+import threading
+import time
 from typing import Annotated
 from uuid import UUID
 
@@ -15,6 +17,9 @@ from ..core.config import auth_settings
 from ..db.connection import connect
 
 bearer = HTTPBearer(auto_error=False)
+USER_CACHE_SECONDS = 300
+_known_users = {}
+_known_users_guard = threading.Lock()
 
 def private_response(response: Response):
     response.headers['Cache-Control'] = 'no-store'
@@ -70,15 +75,30 @@ def verify_access_token(token: str) -> UUID:
 
 
 def ensure_user(user_id: UUID):
+    now = time.monotonic()
+    with _known_users_guard:
+        if _known_users.get(user_id, 0) > now:
+            return user_id
     with connect(autocommit=True) as connection:
-        row = connection.execute('''insert into math_mate.users(id, auth_user_id)
-            values (%s, %s) on conflict (id) do nothing returning id''', (user_id, user_id)).fetchone()
-        if row:
-            return row[0]
-        existing = connection.execute('select id from math_mate.users where id = %s', (user_id,)).fetchone()
-    if not existing:
+        row = connection.execute('''with existing as (
+                select id from math_mate.users where id = %(user)s
+            ), inserted as (
+                insert into math_mate.users(id, auth_user_id)
+                select %(user)s, %(user)s where not exists(select 1 from existing)
+                on conflict (id) do nothing returning id)
+            select id from existing union all select id from inserted limit 1''', {'user': user_id}).fetchone()
+        # Two first requests can race: the loser sees neither the other
+        # transaction's insert nor its own ON CONFLICT result in this snapshot.
+        if not row:
+            row = connection.execute('select id from math_mate.users where id = %s', (user_id,)).fetchone()
+    if not row:
         raise HTTPException(401, 'Your account could not be connected to Math Mate.')
-    return existing[0]
+    with _known_users_guard:
+        _known_users[user_id] = time.monotonic() + USER_CACHE_SECONDS
+        if len(_known_users) > 10000:
+            _known_users.clear()
+            _known_users[user_id] = time.monotonic() + USER_CACHE_SECONDS
+    return row[0]
 
 
 def user(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)], response: Response):

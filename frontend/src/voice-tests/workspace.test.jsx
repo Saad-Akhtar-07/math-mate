@@ -19,6 +19,7 @@ vi.mock('../api/content.js', () => ({
 }))
 vi.mock('../api/submissions.js', async importOriginal => ({
   ...await importOriginal(),
+  getDashboardProgress: vi.fn().mockResolvedValue({ responses: [], assessments: [] }),
   getStudentResponses: vi.fn().mockResolvedValue([]),
   getTutorReviews: vi.fn().mockResolvedValue([]),
   getTutorChatTurns: vi.fn().mockResolvedValue([{

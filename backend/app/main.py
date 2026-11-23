@@ -5,6 +5,7 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from psycopg_pool import PoolTimeout
 
@@ -27,6 +28,7 @@ async def lifespan(_app):
 app = FastAPI(title='Math Mate API', lifespan=lifespan)
 app.include_router(api_router)
 app.add_middleware(UploadBodyLimit)
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins(),

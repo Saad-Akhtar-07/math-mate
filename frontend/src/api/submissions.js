@@ -63,6 +63,10 @@ export function getStudentResponses(topicNumber) {
   })()
 }
 
+export function getDashboardProgress(topicNumber) {
+  return authenticatedRequest(`/me/dashboard?topic_number=${encodeURIComponent(topicNumber)}`)
+}
+
 export function getStudentResponse(partId, options = {}) {
   return authenticatedRequest(`/me/responses/${encodeURIComponent(partId)}`, options)
 }

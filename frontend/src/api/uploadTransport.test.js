@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { uploadMultipart, fileFingerprint } from './uploadTransport.js'
+import { uploadMultipart, fileFingerprint, prepareImageFile } from './uploadTransport.js'
 import FakeXMLHttpRequest from './testing/FakeXMLHttpRequest.js'
 
 const original = globalThis.XMLHttpRequest
@@ -79,4 +79,9 @@ test('file fingerprints use the same raw bytes as server deduplication', async (
   const file = new File(['solution page'], 'page.jpg')
   assert.equal(await fileFingerprint(file), createHash('sha256').update('solution page').digest('hex'))
   assert.equal(await fileFingerprint({}), null)
+})
+
+test('small photos skip browser re-encoding', async () => {
+  const file = new File(['small page'], 'page.png', { type: 'image/png' })
+  assert.equal(await prepareImageFile(file), file)
 })

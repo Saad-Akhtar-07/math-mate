@@ -3,6 +3,8 @@
 import os
 import threading
 import time
+import hashlib
+import json
 
 from fastapi import HTTPException
 from psycopg.rows import dict_row
@@ -12,8 +14,9 @@ from ..db.connection import connect
 from .question_content import public_question, find_part
 
 
-CONTENT_CACHE_SECONDS = float(os.getenv('MATH_MATE_CONTENT_CACHE_SECONDS', '300'))
+CONTENT_CACHE_SECONDS = float(os.getenv('MATH_MATE_CONTENT_CACHE_SECONDS', '21600'))
 _content_cache = {}
+_payload_etags = {}
 _cache_guard = threading.Lock()
 _cache_load_locks = {}
 
@@ -22,6 +25,22 @@ def clear_content_cache():
     """Forget public content cached by this backend process."""
     with _cache_guard:
         _content_cache.clear()
+        _payload_etags.clear()
+
+
+def etag_for(payload):
+    """A stable validator, calculated once for each cached public payload."""
+    identity = id(payload)
+    with _cache_guard:
+        cached = _payload_etags.get(identity)
+    if cached:
+        return cached
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':'),
+                                       default=str).encode('utf-8')).hexdigest()[:24]
+    value = f'"{digest}"'
+    with _cache_guard:
+        _payload_etags[identity] = value
+    return value
 
 
 def _cached(key, load):
@@ -94,6 +113,50 @@ def topic_questions(topic_code: str):
     # Availability can change without question content changing (for example,
     # the AI provider being disabled). Keep those variants in distinct entries.
     return _cached(('topic', topic_code, ai_enabled(), storage_configured()), load)
+
+
+def _catalogue_question(question):
+    """Small question cards and part identities; prompts stay in the detail response."""
+    return {
+        key: question.get(key) for key in ('id', 'number', 'title', 'total_marks', 'marks', 'difficulty')
+    } | {
+        'topicCode': question.get('topicCode'),
+        'subtopicCodes': question.get('subtopicCodes') or [],
+        'paper': question.get('paper'),
+        'localDraftOnly': question.get('localDraftOnly', False),
+        'capabilities': question.get('capabilities') or {},
+        'uploadLimits': question.get('uploadLimits') or {},
+        'parts': [
+            {key: part.get(key) for key in ('id', 'label', 'marks', 'subtopicCode')}
+            | {key: part[key] for key in ('aiMarkable', 'visualResponse') if part.get(key) is not None}
+            for part in question.get('parts') or []
+        ],
+    }
+
+
+def topic_catalogue(topic_code: str):
+    def load():
+        full = topic_questions(topic_code)
+        return {
+            'questions': [_catalogue_question(question) for question in full['questions']],
+            'total_marks': full['total_marks'],
+        }
+    return _cached(('catalogue', topic_code, ai_enabled(), storage_configured()), load)
+
+
+def question_detail(question_id: str):
+    def load():
+        with connect(autocommit=True) as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute("""
+                    select id, topic_code, subtopic_codes, source_file, question_data, collection_data
+                    from math_mate.questions where id = %s
+                """, (question_id,))
+                row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail='Question not found')
+        return public_question(row)
+    return _cached(('question', question_id, ai_enabled(), storage_configured()), load)
 
 
 def question_part_solution(part_id: str):

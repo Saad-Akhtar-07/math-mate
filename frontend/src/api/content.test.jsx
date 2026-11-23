@@ -5,8 +5,7 @@ afterEach(() => {
   vi.resetModules()
 })
 
-test('startup prefetch shares the topic request with later navigation', async () => {
-  const pendingBanks = []
+test('startup prefetch loads only the small summary', async () => {
   const response = (body) => new Response(JSON.stringify(body), {
     headers: { 'Content-Type': 'application/json' },
   })
@@ -14,9 +13,7 @@ test('startup prefetch shares the topic request with later navigation', async ()
     if (url.endsWith('/questions/summary')) {
       return Promise.resolve(response({ topic_counts: { 1: 12, 2: 181 }, subtopic_counts: {} }))
     }
-    return new Promise((resolve) => pendingBanks.push(() => resolve(response({
-      questions: [{ id: 'question-one' }],
-    }))))
+    return Promise.resolve(response({ questions: [{ id: 'question-one' }] }))
   })
   vi.stubGlobal('fetch', fetchMock)
 
@@ -26,17 +23,13 @@ test('startup prefetch shares the topic request with later navigation', async ()
     '/api/v1/questions/summary',
   ])
 
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-  expect(fetchMock.mock.calls[1][0]).toContain('/api/v1/topics/1/questions')
-  pendingBanks.shift()()
-
-  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
-  expect(fetchMock.mock.calls[2][0]).toContain('/api/v1/topics/2/questions')
+  await getQuestionSummary()
+  expect(fetchMock).toHaveBeenCalledTimes(1)
   const topicTwo = getQuestionBank('2')
-  expect(fetchMock).toHaveBeenCalledTimes(3)
-  pendingBanks.shift()()
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(fetchMock.mock.calls[1][0]).toContain('/api/v1/topics/2/questions/catalogue')
 
   expect((await topicTwo).questions).toHaveLength(1)
   expect((await getQuestionSummary()).topic_counts['2']).toBe(181)
-  expect(fetchMock).toHaveBeenCalledTimes(3)
+  expect(fetchMock).toHaveBeenCalledTimes(2)
 })

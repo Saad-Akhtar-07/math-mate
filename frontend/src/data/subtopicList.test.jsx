@@ -4,12 +4,12 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { getQuestionBank } from '../api/content.js'
-import { getStudentResponses, getTutorReviews } from '../api/submissions.js'
+import { getDashboardProgress } from '../api/submissions.js'
 import SubtopicPage from '../pages/SubtopicPage.jsx'
 
 vi.mock('../api/content.js', () => ({ getQuestionBank: vi.fn(), getQuestionPartSolution: vi.fn() }))
 vi.mock('../api/submissions.js', async (original) => ({
-  ...await original(), getStudentResponses: vi.fn(), getTutorReviews: vi.fn(),
+  ...await original(), getDashboardProgress: vi.fn(),
 }))
 
 const paper = (calculatorAllowed) => ({ year: 2024, session: 'May/June', component: calculatorAllowed ? '22' : '12', calculatorAllowed })
@@ -39,8 +39,10 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
   getQuestionBank.mockResolvedValue({ questions })
-  getStudentResponses.mockResolvedValue([{ question_part_id: 'q-draft-a', typed_work: '3x + 5', revision: 1, attachments: [], submitted: false }])
-  getTutorReviews.mockResolvedValue([review('q-done-a', 2), review('q-retry-a', 1)])
+  getDashboardProgress.mockResolvedValue({
+    responses: [{ question_part_id: 'q-draft-a', has_work: true, submitted: false }],
+    assessments: [review('q-done-a', 2), review('q-retry-a', 1)],
+  })
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -57,8 +59,7 @@ test('rows show each question’s progress and the header sums it up', async () 
   // Work already started comes first.
   const start = screen.getByRole('link', { name: 'Continue question' })
   expect(start.getAttribute('href')).toBe('/topic/2/practice?subtopic=2.5&question=q-draft')
-  expect(getStudentResponses).toHaveBeenCalledWith('2')
-  expect(getTutorReviews).toHaveBeenCalledWith('2')
+  expect(getDashboardProgress).toHaveBeenCalledWith('2')
 })
 
 test('status filters show counts and narrow the list', async () => {
@@ -84,20 +85,18 @@ test('difficulty filtering carries into the workspace so Next follows the same l
 })
 
 test('a new account sees questions with empty progress', async () => {
-  getStudentResponses.mockResolvedValue([])
-  getTutorReviews.mockResolvedValue([])
+  getDashboardProgress.mockResolvedValue({ responses: [], assessments: [] })
   renderList()
   const list = await screen.findByRole('region', { name: 'Questions' })
   expect(within(list).getAllByRole('link')).toHaveLength(4)
   expect(within(list).queryByText('2 of 2 marks')).toBeNull()
   expect(screen.getByText('4 questions')).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Start next question' })).toBeTruthy()
-  expect(getStudentResponses).toHaveBeenCalled()
-  expect(getTutorReviews).toHaveBeenCalled()
+  expect(getDashboardProgress).toHaveBeenCalled()
 })
 
 test('a progress failure keeps every question available', async () => {
-  getStudentResponses.mockRejectedValue(new Error('Server unavailable'))
+  getDashboardProgress.mockRejectedValue(new Error('Server unavailable'))
   renderList()
   expect(await screen.findByText('Your progress could not be loaded. You can still practise every question.')).toBeTruthy()
   expect(within(screen.getByRole('region', { name: 'Questions' })).getAllByRole('link')).toHaveLength(4)

@@ -45,3 +45,24 @@ def test_summary_is_aggregated_once_and_cached(monkeypatch):
     assert len(connection.statements) == 1
     assert 'jsonb_object_agg' in connection.statements[0]
     assert 'unnest(subtopic_codes)' in connection.statements[0]
+
+
+def test_catalogue_omits_heavy_prompts_but_keeps_navigation_parts(monkeypatch):
+    full = {'questions': [{
+        'id': 'q1', 'number': 1, 'title': 'Solve', 'total_marks': 2,
+        'difficulty': {'label': 'easy'}, 'topicCode': '2', 'subtopicCodes': ['2.5'],
+        'paper': {'year': 2024}, 'prompt': [{'type': 'paragraph', 'content': 'large prompt'}],
+        'capabilities': {'saveResponses': True}, 'uploadLimits': {'maxPages': 4},
+        'parts': [{'id': 'q1-a', 'label': '(a)', 'marks': 2, 'subtopicCode': '2.5',
+                   'prompt': [{'type': 'paragraph', 'content': 'part prompt'}]}],
+    }], 'total_marks': 2}
+    monkeypatch.setattr(questions, 'topic_questions', lambda _topic: full)
+    questions.clear_content_cache()
+    try:
+        catalogue = questions.topic_catalogue('2')
+    finally:
+        questions.clear_content_cache()
+    item = catalogue['questions'][0]
+    assert 'prompt' not in item
+    assert item['parts'] == [{'id': 'q1-a', 'label': '(a)', 'marks': 2, 'subtopicCode': '2.5'}]
+    assert len(str(catalogue)) < len(str(full))

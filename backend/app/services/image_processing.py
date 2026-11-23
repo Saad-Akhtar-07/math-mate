@@ -2,6 +2,7 @@
 
 import hashlib
 import io
+import os
 import warnings
 from dataclasses import dataclass
 from threading import BoundedSemaphore
@@ -12,7 +13,7 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_STORED_BYTES = 5 * 1024 * 1024
 MAX_PIXELS = 25_000_000
 MAX_EDGE = 2200
-PROCESSING = BoundedSemaphore(1)
+PROCESSING = BoundedSemaphore(max(1, int(os.getenv('MATH_MATE_IMAGE_WORKERS', '2'))))
 
 
 class InvalidImage(ValueError):
@@ -36,8 +37,8 @@ class CompressedPage:
 def compress_page(raw: bytes) -> CompressedPage:
     if not raw or len(raw) > MAX_UPLOAD_BYTES:
         raise InvalidImage('Choose an image smaller than 10 MB.')
-    if not PROCESSING.acquire(blocking=False):
-        raise ImageBusy('An image is being processed. Please try again in a moment.')
+    if not PROCESSING.acquire(timeout=30):
+        raise ImageBusy('Photo processing is busy. Please try again in a moment.')
     try:
         with warnings.catch_warnings():
             warnings.simplefilter('error', Image.DecompressionBombWarning)
@@ -62,11 +63,11 @@ def compress_page(raw: bytes) -> CompressedPage:
                     rgb = page.convert('RGB')
                 # Re-encoding removes EXIF/GPS and embedded metadata. Size is a
                 # soft target: do not crush handwriting to meet a tiny byte cap.
-                for quality in (88, 82, 76):
+                for quality in (86, 78, 70):
                     buffer = io.BytesIO()
-                    rgb.save(buffer, format='JPEG', quality=quality, optimize=True, subsampling=0)
+                    rgb.save(buffer, format='JPEG', quality=quality, optimize=True, subsampling=1)
                     data = buffer.getvalue()
-                    if len(data) <= 1024 * 1024:
+                    if len(data) <= 700 * 1024:
                         break
                 if len(data) > MAX_STORED_BYTES:
                     raise InvalidImage('This image is too detailed to store safely. Crop to the solution page and try again.')

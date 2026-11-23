@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getStudentResponses, getTutorReviews } from '../api/submissions.js'
+import { getDashboardProgress } from '../api/submissions.js'
 import { readDrafts } from '../data/localDrafts.js'
 import { latestReviewsByPart, responsesByPart } from '../utils/progress.js'
 
@@ -30,8 +30,8 @@ export default function useLearnerProgress(topicNumber, questions, questionsLoad
     }
     let active = true
     setState((current) => ({ ...current, key, loading: true, error: '' }))
-    Promise.all([getStudentResponses(topicNumber), aiEnabled ? getTutorReviews(topicNumber) : []])
-      .then(([responses, reviews]) => {
+    getDashboardProgress(topicNumber)
+      .then(({ responses, assessments: reviews }) => {
         if (active) setState({ key, responses: responsesByPart(responses), reviews: latestReviewsByPart(reviews), responseList: responses, reviewList: reviews, loading: false, error: '' })
       })
       .catch((error) => { if (active) setState({ key, ...EMPTY, loading: false, error: error.message }) })

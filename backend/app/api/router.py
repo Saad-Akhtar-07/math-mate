@@ -2,11 +2,12 @@
 
 from fastapi import APIRouter
 
-from .routes import assessments, questions, responses, tutoring, uploads
+from .routes import assessments, dashboard, questions, responses, tutoring, uploads
 
 api_router = APIRouter()
 for router in (
     questions.router,
+    dashboard.router,
     responses.router,
     uploads.router,
     assessments.router,

@@ -55,3 +55,44 @@ export async function fileFingerprint(file) {
   const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
+
+const CLIENT_MAX_EDGE = 2000
+const CLIENT_TARGET_BYTES = 700 * 1024
+
+function canvasBlob(canvas, quality) {
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality))
+}
+
+export async function prepareImageFile(file) {
+  // Small files gain little from a decode/re-encode. The server remains the
+  // validation boundary and always strips metadata before Storage.
+  if (file.size <= CLIENT_TARGET_BYTES || typeof createImageBitmap !== 'function'
+    || typeof document === 'undefined') return file
+  let bitmap
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+  } catch {
+    try { bitmap = await createImageBitmap(file) } catch { return file }
+  }
+  try {
+    const scale = Math.min(1, CLIENT_MAX_EDGE / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+    const context = canvas.getContext('2d')
+    if (!context) return file
+    context.fillStyle = '#fff'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    let blob = null
+    for (const quality of [0.82, 0.72, 0.62]) {
+      blob = await canvasBlob(canvas, quality)
+      if (!blob || blob.size <= CLIENT_TARGET_BYTES) break
+    }
+    if (!blob || blob.size >= file.size) return file
+    const name = file.name.replace(/\.[^.]+$/, '') || 'solution-page'
+    return new File([blob], `${name}.jpg`, { type: 'image/jpeg', lastModified: file.lastModified })
+  } finally {
+    bitmap.close?.()
+  }
+}
