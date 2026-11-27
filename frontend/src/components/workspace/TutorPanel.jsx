@@ -5,6 +5,7 @@ import useVoiceInput from '../../hooks/useVoiceInput.js'
 import { MAX_ASSISTANCE, TEACHING_MOVE_LABELS } from '../../utils/workspace.js'
 import TutorText from '../TutorText.jsx'
 import { ReadAloud, VoiceInputPanel, VoiceMicButton, VoicePreferences, VoiceStatus } from '../TutorVoice.jsx'
+import StreamingTutorText from './StreamingTutorText.jsx'
 
 const isPending = (status) => status === 'pending' || status === 'processing'
 
@@ -156,7 +157,7 @@ export default function TutorPanel({
               <ReadAloud speech={speech} type="chat" id={item.value.id} disabled={voiceInput.state !== 'idle'} />
             </div>}
             {isPending(item.value.status) && (item.value.tutor_message
-              ? <div className="ws-msg is-tutor"><span className="ws-msg-label">{TEACHING_MOVE_LABELS[item.value.teaching_move] || 'Tutor'}</span><div className="ws-bubble"><TutorText text={item.value.tutor_message} /></div></div>
+              ? <div className="ws-msg is-tutor"><span className="ws-msg-label">{TEACHING_MOVE_LABELS[item.value.teaching_move] || 'Tutor'}</span><div className="ws-bubble"><StreamingTutorText text={item.value.tutor_message} /></div></div>
               : <ThinkingBubble text="Preparing useful guidance…" />)}
             {item.value.status === 'failed' && <div className="ws-msg is-tutor is-error" role="alert">
               <span className="ws-msg-label">Message saved</span>

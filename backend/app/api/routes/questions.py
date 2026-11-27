@@ -23,6 +23,11 @@ def health():
     return questions.health()
 
 
+@router.get('/ready')
+def readiness():
+    return questions.readiness()
+
+
 @router.get('/questions/summary')
 def question_summary(request: Request, response: Response):
     return public_payload(request, response, questions.question_summary())

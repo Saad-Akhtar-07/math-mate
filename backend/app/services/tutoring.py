@@ -296,11 +296,20 @@ def complete_turn(plan):
 
 def list_turns(owner, topic_number):
     with connect(autocommit=True) as connection, connection.cursor(row_factory=dict_row) as cursor:
-        sweep_stale_turns(cursor)
-        cursor.execute('''select t.*, s.question_part_id from math_mate.tutor_turns t
+        cursor.execute('''select t.*, s.question_part_id,
+                case when t.status = 'processing' and t.updated_at < now() - interval '2 minutes'
+                    then 'failed' else t.status end as effective_status,
+                case when t.status = 'processing' and t.updated_at < now() - interval '2 minutes'
+                    then 'interrupted' else t.error_code end as effective_error_code
+            from math_mate.tutor_turns t
             join math_mate.tutor_sessions s on s.id = t.session_id
             join math_mate.question_parts p on p.id = s.question_part_id
             join math_mate.questions q on q.id = p.question_id
-            where t.user_id = %s and q.topic_code = %s order by t.created_at limit 1000''', (owner, topic_number))
+            where t.user_id = %s and q.topic_code = %s order by t.created_at desc, t.id desc limit 250''',
+            (owner, topic_number))
         rows = cursor.fetchall()
+    rows.reverse()
+    for row in rows:
+        row['status'] = row.pop('effective_status')
+        row['error_code'] = row.pop('effective_error_code')
     return {'turns': [serialize_turn(row, row['question_part_id']) for row in rows]}

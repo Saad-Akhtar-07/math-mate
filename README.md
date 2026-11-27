@@ -21,7 +21,7 @@ The browser talks to FastAPI, and FastAPI is the only application layer that tal
 
 ## Run locally
 
-Create `.env` from `.env.example` and fill in the server-side Supabase PostgreSQL connection details. Set `SUPABASE_URL` for JWT verification. For solution photos, also set `SUPABASE_SECRET_KEY` (or the legacy `SUPABASE_SERVICE_ROLE_KEY`). These secrets stay on the backend. Then, from the project root, install and start the backend:
+Create `.env` from `.env.example` and fill in the server-side Supabase PostgreSQL connection details. Set `SUPABASE_URL` for JWT verification. For solution photos, also set `SUPABASE_SECRET_KEY` (or the legacy ``SUPABASE_SERVICE_ROLE_KEY`). These secrets stay on the backend. Then, from the project root, install and start the backend:
 
 ```powershell
 python -m venv .venv

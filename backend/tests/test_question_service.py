@@ -66,3 +66,24 @@ def test_catalogue_omits_heavy_prompts_but_keeps_navigation_parts(monkeypatch):
     assert 'prompt' not in item
     assert item['parts'] == [{'id': 'q1-a', 'label': '(a)', 'marks': 2, 'subtopicCode': '2.5'}]
     assert len(str(catalogue)) < len(str(full))
+
+
+def test_liveness_check_never_checks_out_a_database_connection(monkeypatch):
+    def unexpected_connect(*_args, **_kwargs):
+        raise AssertionError('liveness must not consume a database connection')
+
+    monkeypatch.setattr(questions, 'connect', unexpected_connect)
+    assert questions.health() == {'status': 'ok'}
+
+
+def test_readiness_check_verifies_the_database(monkeypatch):
+    connection = SummaryConnection()
+    connection.execute = lambda _statement: type('Result', (), {'fetchone': lambda _self: (1,)})()
+
+    @contextmanager
+    def fake_connect(autocommit=False):
+        assert autocommit is True
+        yield connection
+
+    monkeypatch.setattr(questions, 'connect', fake_connect)
+    assert questions.readiness() == {'status': 'ok'}

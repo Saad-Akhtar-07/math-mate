@@ -132,7 +132,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
       <text x="445" y="86" text-anchor="middle">small lists, then one question</text>
       <rect class="box" x="360" y="120" width="170" height="60" rx="8"/>
       <text class="t" x="445" y="146" text-anchor="middle">Work saver</text>
-      <text x="445" y="166" text-anchor="middle">drafts, progress and photos</text>
+      <text x="445" y="166" text-anchor="middle">batched drafts + progress</text>
       <rect class="box ai" x="360" y="200" width="170" height="60" rx="8"/>
       <text class="t" x="445" y="226" text-anchor="middle">Marker</text>
       <text x="445" y="246" text-anchor="middle">marks the work</text>
@@ -174,7 +174,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
       <text class="lab pen" x="833" y="168">1 call</text>
     </svg>
     </div>
-    <figcaption>Students verify their email and sign in through Supabase before the backend accepts private work. The question bank sends a small reusable list first and only the opened question in full; dashboards receive one compact progress view instead of whole answer histories. Photos are made smaller before transfer and wait in a short processing queue. Everything is saved in the one Supabase database. Only the Marker and the Tutor use AI, and both have to pass the budget guard first.</figcaption>
+    <figcaption>Students verify their email and sign in through Supabase before the backend accepts private work. The question bank sends a small reusable list first and only the opened question in full; dashboards receive one compact progress view instead of whole answer histories. While a student types, browser recovery changes are grouped briefly, and history views read only the newest useful records. Photos are made smaller before transfer and wait in a short processing queue. Everything is saved in the one Supabase database. Only the Marker and the Tutor use AI, and both have to pass the budget guard first.</figcaption>
   </figure>
 </section>
 
@@ -406,6 +406,8 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
   <span class="eyebrow">What changed</span>
   <h2>Backend updates</h2>
   <ol class="changes">
+    <li><time datetime="2026-11-23">23 Nov 2026</time><div><h3>Routine background work is quieter</h3>
+      <p>Typing now groups brief browser recovery updates instead of rewriting storage for every key. Opening marking and tutor history reads only the newest useful records and no longer rewrites old job rows. The frequent service heartbeat no longer occupies a database connection; a separate readiness check remains available when the database itself must be verified.</p></div></li>
     <li><time datetime="2026-11-23">23 Nov 2026</time><div><h3>Dashboards and questions use much less data</h3>
       <p>Startup now asks only for the small topic summary. Topic pages reuse lightweight question cards, the workspace opens one complete question at a time, and a single compact progress view replaces separate downloads of answer and marking histories. Public content stays reusable for longer and supports compressed, unchanged responses. Large photos are reduced before transfer and enter a bounded processing queue instead of competing all at once.</p></div></li>
     <li><time datetime="2026-11-22">22 Nov 2026</time><div><h3>Misconception memory now covers all nine topics</h3>

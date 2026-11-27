@@ -258,6 +258,34 @@ test('quick requests send the matching intent and the help bar shows the level r
   expect(requestTutorReview).not.toHaveBeenCalled()
 })
 
+test('validated tutor text reveals in local word groups and completion never waits for animation', async () => {
+  const reply = 'Check the sign on each term before moving it across the equals sign, then tell me what changes.'
+  let finish
+  sendTutorChatMessage.mockImplementation((partId, message, clientMessageId, { intent, onEvent }) => {
+    const turn = {
+      id: 'turn-streamed', client_message_id: clientMessageId, question_part_id: partId, intent,
+      learner_message: message, status: 'completed', teaching_move: 'small_hint', tutor_message: reply,
+      created_at: new Date().toISOString(),
+    }
+    onEvent({ type: 'start', data: { ...turn, status: 'processing', tutor_message: '' } })
+    onEvent({ type: 'delta', data: { text: reply } })
+    return new Promise((resolve) => { finish = () => resolve(turn) })
+  })
+  workspace([question([{ id: 'q1-a', label: '(a)', marks: 2, prompt: [paragraph('Solve x + 2 = 7.')] }])])
+  await openAnswer()
+  const tutor = screen.getByRole('complementary', { name: 'Tutor' })
+
+  fireEvent.click(within(tutor).getByRole('button', { name: 'Give me a hint' }))
+  await waitFor(() => expect(tutor.querySelector('.ws-stream-text')).toBeTruthy())
+  const partial = tutor.querySelector('.ws-stream-text').textContent
+  expect(reply.startsWith(partial)).toBe(true)
+  expect(partial).not.toBe(reply)
+
+  finish()
+  expect(await within(tutor).findByText(reply)).toBeTruthy()
+  expect(tutor.querySelector('.ws-stream-caret')).toBeNull()
+})
+
 test('the tutor can be resized within limits by keyboard, remembered and reset', async () => {
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1400, right: 1400, left: 0, top: 0, bottom: 800, height: 800 })
   const view = workspace([question([{ id: 'q1-a', label: '(a)', marks: 2, prompt: [paragraph('Solve x + 2 = 7.')] }])])

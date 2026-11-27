@@ -66,6 +66,10 @@ def _cached(key, load):
 
 
 def health():
+    return {'status': 'ok'}
+
+
+def readiness():
     with connect(autocommit=True) as connection:
         value = connection.execute("select 1").fetchone()[0]
     return {"status": "ok" if value == 1 else "error"}

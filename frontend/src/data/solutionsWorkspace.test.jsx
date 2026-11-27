@@ -77,9 +77,26 @@ test('signed-in user saves, submits, views history and edits a new draft without
   expect(await screen.findByText('x = 5', { selector: 'pre' })).toBeTruthy()
   fireEvent.change(answer, { target: { value: 'x = 6' } })
   expect(screen.getByRole('button', { name: 'Submit answer' }).disabled).toBe(false)
-  expect(JSON.parse(localStorage.getItem('math-mate-drafts-v1'))['2']['q1-a']).toBe('x = 6')
+  await waitFor(() => expect(JSON.parse(localStorage.getItem('math-mate-drafts-v1'))['2']['q1-a']).toBe('x = 6'))
+  expect(screen.getByText('Saved on this device')).toBeTruthy()
   expect(getTutorReviews).not.toHaveBeenCalled()
   expect(getTutorChatTurns).not.toHaveBeenCalled()
+})
+
+test('rapid typing batches browser recovery into one storage write', async () => {
+  const setItem = vi.spyOn(Storage.prototype, 'setItem')
+  workspace()
+  const answer = await screen.findByRole('textbox', { name: 'Your working' })
+  await waitFor(() => expect(answer.disabled).toBe(false))
+  setItem.mockClear()
+
+  fireEvent.change(answer, { target: { value: 'x' } })
+  fireEvent.change(answer, { target: { value: 'x =' } })
+  fireEvent.change(answer, { target: { value: 'x = 6' } })
+
+  await waitFor(() => expect(JSON.parse(localStorage.getItem('math-mate-drafts-v1'))['2']['q1-a']).toBe('x = 6'))
+  const recoveryWrites = setItem.mock.calls.filter(([key]) => key === 'math-mate-drafts-v1')
+  expect(recoveryWrites).toHaveLength(1)
 })
 
 test('different local recovery and server answers require an explicit choice', async () => {

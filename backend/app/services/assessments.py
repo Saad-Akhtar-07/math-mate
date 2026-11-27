@@ -197,15 +197,25 @@ def complete(cursor, work, context, mark_result):
 
 def list_assessments(owner, topic_number):
     with connect(autocommit=True) as connection, connection.cursor(row_factory=dict_row) as cursor:
-        sweep_stale(cursor)
-        cursor.execute('''select a.*, r.question_part_id, (s.visual_answer is not null) as visual_submission,
-                dense_rank() over (partition by s.response_id order by s.response_revision) as attempt_number
-            from math_mate.assessments a
-            join math_mate.response_submissions s on s.id = a.submission_id
-            join math_mate.student_responses r on r.id = s.response_id
-            join math_mate.question_parts p on p.id = r.question_part_id
-            join math_mate.questions q on q.id = p.question_id
-            where r.user_id = %s and q.topic_code = %s
-            order by a.created_at, s.response_revision limit 1000''', (owner, topic_number))
+        cursor.execute('''with history as (
+                select a.*, s.response_revision, r.question_part_id,
+                    (s.visual_answer is not null) as visual_submission,
+                    dense_rank() over (partition by s.response_id order by s.response_revision) as attempt_number,
+                    case when a.status in ('pending', 'processing')
+                            and a.updated_at < now() - interval '3 minutes' then 'failed' else a.status end as effective_status,
+                    case when a.status in ('pending', 'processing')
+                            and a.updated_at < now() - interval '3 minutes' then 'interrupted' else a.error_code end as effective_error_code
+                from math_mate.assessments a
+                join math_mate.response_submissions s on s.id = a.submission_id
+                join math_mate.student_responses r on r.id = s.response_id
+                join math_mate.question_parts p on p.id = r.question_part_id
+                join math_mate.questions q on q.id = p.question_id
+                where r.user_id = %s and q.topic_code = %s)
+            select * from history order by created_at desc, response_revision desc, id desc limit 250''',
+            (owner, topic_number))
         rows = cursor.fetchall()
+    rows.reverse()
+    for row in rows:
+        row['status'] = row.pop('effective_status')
+        row['error_code'] = row.pop('effective_error_code')
     return {'assessments': [serialize(row, row['question_part_id'], row['attempt_number']) for row in rows]}

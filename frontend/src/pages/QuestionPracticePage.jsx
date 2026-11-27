@@ -28,6 +28,7 @@ import './PracticeWorkspace.css'
 import './Workspace.css'
 
 const TUTOR_OPEN_STORAGE_KEY = 'practice-tutor-open-v1'
+const RECOVERY_SAVE_DELAY_MS = 250
 const SERVER_SAVE_DELAY_MS = 1500
 
 function storedTutorOpen() {
@@ -130,6 +131,7 @@ export default function QuestionPracticePage() {
   const conflictsRef = useRef(new Set())
   const restoreFailedRef = useRef(false)
   const saveTimersRef = useRef(new Map())
+  const recoveryTimersRef = useRef(new Map())
   const saveVersionsRef = useRef(new Map())
   const saveQueuesRef = useRef(new Map())
   const busyPartsRef = useRef(new Set())
@@ -242,6 +244,8 @@ export default function QuestionPracticePage() {
     setChatStates({})
     saveTimersRef.current.forEach((timer) => clearTimeout(timer))
     saveTimersRef.current.clear()
+    recoveryTimersRef.current.forEach(({ timer }) => clearTimeout(timer))
+    recoveryTimersRef.current.clear()
     if (!topic) return undefined
     let cancelled = false
     if (!questionBank?.questions?.length) return undefined
@@ -303,6 +307,12 @@ export default function QuestionPracticePage() {
       cancelled = true
       saveTimersRef.current.forEach((timer) => clearTimeout(timer))
       saveTimersRef.current.clear()
+      // Route changes and unmounts flush the short local-recovery debounce.
+      recoveryTimersRef.current.forEach(({ timer, partId, value }) => {
+        clearTimeout(timer)
+        try { saveDraft(topic.number, partId, value) } catch { /* The server copy remains authoritative. */ }
+      })
+      recoveryTimersRef.current.clear()
     }
   }, [topicNumber, questionBank, usesLocalDrafts, aiEnabled])
 
@@ -357,6 +367,12 @@ export default function QuestionPracticePage() {
     if (!usesLocalDrafts && (restoreFailedRef.current || conflictsRef.current.has(partId))) {
       throw new Error('Choose which saved answer to keep before saving this draft.')
     }
+    const pendingRecovery = recoveryTimersRef.current.get(partId)
+    if (pendingRecovery) {
+      clearTimeout(pendingRecovery.timer)
+      recoveryTimersRef.current.delete(partId)
+      try { saveDraft(topic.number, partId, value) } catch { /* The network save still proceeds. */ }
+    }
     const version = (saveVersionsRef.current.get(partId) || 0) + 1
     saveVersionsRef.current.set(partId, version)
     setSaveStates((current) => ({ ...current, [partId]: 'saving' }))
@@ -408,20 +424,38 @@ export default function QuestionPracticePage() {
     setAnswers(answersRef.current)
     setSubmittedParts((current) => ({ ...current, [partId]: false }))
     saveVersionsRef.current.set(partId, (saveVersionsRef.current.get(partId) || 0) + 1)
-    try {
-      saveDraft(topic.number, partId, value)
-      if (usesLocalDrafts) {
+    if (usesLocalDrafts) {
+      try {
+        saveDraft(topic.number, partId, value)
         setSaveStates((current) => ({ ...current, [partId]: 'saved' }))
         setSaveMessages((current) => ({ ...current, [partId]: 'Saved on this device' }))
         return
+      } catch {
+        setResponseLoadError('Browser recovery storage is unavailable. Keep this page open until your work is saved to the server.')
       }
-    } catch {
-      setResponseLoadError('Browser recovery storage is unavailable. Keep this page open until your work is saved to the server.')
     }
-    // Recovery is already on this device. Show network activity only when the
-    // debounced server request actually begins, rather than on every keystroke.
+    // Batch browser recovery writes briefly, and show network activity only
+    // when the debounced server request actually begins.
     setSaveStates((current) => ({ ...current, [partId]: 'idle' }))
-    setSaveMessages((current) => ({ ...current, [partId]: 'Saved on this device' }))
+    setSaveMessages((current) => ({ ...current, [partId]: 'Keeping changes on this device…' }))
+    const previousRecovery = recoveryTimersRef.current.get(partId)
+    if (previousRecovery) clearTimeout(previousRecovery.timer)
+    const recovery = {
+      partId,
+      value,
+      timer: setTimeout(() => {
+        recoveryTimersRef.current.delete(partId)
+        try {
+          saveDraft(topic.number, partId, value)
+          if ((answersRef.current[partId] || '') === value) {
+            setSaveMessages((current) => ({ ...current, [partId]: 'Saved on this device' }))
+          }
+        } catch {
+          setResponseLoadError('Browser recovery storage is unavailable. Keep this page open until your work is saved to the server.')
+        }
+      }, RECOVERY_SAVE_DELAY_MS),
+    }
+    recoveryTimersRef.current.set(partId, recovery)
     clearTimeout(saveTimersRef.current.get(partId))
     const timer = setTimeout(() => {
       saveTimersRef.current.delete(partId)
