@@ -1,15 +1,16 @@
-"""Pedagogical policy v1: an ordered, explainable rule table in plain Python.
+"""Socratic teaching policy driven by the active contextual-BKT profile.
 
 decide(state) -> Decision is the stable interface. Every decision is stored with
-its inputs (TutorState.snapshot) so a future policy can be replayed against past
-sessions before it replaces this one.
+its inputs (TutorState.snapshot). BKT supplies mastery and evidence confidence;
+the policy remains the safety layer that turns those estimates, the Listener's
+observation and session progress into a bounded teaching move.
 """
 
 from dataclasses import asdict, dataclass
 
 from .schemas import Observation
 
-POLICY_VERSION = 'policy-v2'   # v2: mastery shifts the start level only with confidence; Hint starts at most at level 2
+POLICY_VERSION = 'policy-v3-bkt'  # Context-time BKT guides the start only after enough diagnostic observations.
 TURN_CAP = 15
 MAX_HINT_LEVEL = 4   # level 5 (full solution) only via the turn cap or repeated answer requests
 ASSISTANCE = {
@@ -54,7 +55,7 @@ class Decision:
 
 
 def start_level(state):
-    # Mastery from one or two attempts is mostly the prior, so it only moves the start with confidence.
+    # BKT's first update can move sharply, so it changes help only after enough observations.
     trusted = state.mastery is not None and state.confidence >= 0.5
     if state.misconception_seen >= 2 or (state.mistake_type == 'conceptual' and trusted and state.mastery < 0.4):
         return 3

@@ -17,7 +17,7 @@ docs/                   Frontend, backend and schema guides
 extraction-prompts/     Preserved question-extraction prompt tooling; not runtime code
 ```
 
-The browser talks to FastAPI, and FastAPI is the only application layer that talks to Supabase PostgreSQL. See [the frontend guide](docs/frontend.md), [backend guide](backend/README.md), and [schema guide](docs/schema.md) before extending those areas.
+The browser talks to FastAPI, and FastAPI is the only application layer that talks to Supabase PostgreSQL. See [the frontend guide](docs/frontend.md), [backend guide](backend/README.md), and [schema guide](docs/schema.md) before extending those areas. The active context-time BKT learner model, retained baselines and evaluation rules are documented in [the BKT model guide](docs/bkt-model.md).
 
 ## Run locally
 

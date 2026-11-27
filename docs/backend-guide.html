@@ -307,7 +307,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
   <h2>What the backend remembers about a student</h2>
   <figure>
     <div class="scroll">
-    <svg class="dg" viewBox="0 0 900 210" role="img" aria-label="Student memory is updated when Check my work is marked, recording outcome evidence and named recurring mistakes across all nine topics, and when a part is solved with full marks, marking those mistakes as fixed. The tutor reads it at every message without changing it. The marker never uses it.">
+    <svg class="dg" viewBox="0 0 900 300" role="img" aria-label="Student memory is updated when Check my work is marked. The tutor reads the active context-time BKT skill memory, which distinguishes independent attempts, assisted attempts, shown solutions and long time gaps. Weighted mastery and standard BKT remain evaluation baselines, while the teaching policy safely converts active mastery into a help level.">
       <defs>
         <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker>
       </defs>
@@ -335,9 +335,17 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
       <text class="lab" x="608" y="56" text-anchor="middle">reads it</text>
       <path class="ln pen dash" d="M560 126L648 160"/>
       <text class="lab pen" x="604" y="172" text-anchor="middle">never reads it</text>
+      <rect class="box mem" x="340" y="205" width="220" height="80" rx="8"/>
+      <text class="t" x="450" y="229" text-anchor="middle">Active BKT memory</text>
+      <text x="450" y="249" text-anchor="middle">attempts + help context</text>
+      <text x="450" y="267" text-anchor="middle">time-aware mastery</text>
+      <path class="ln" d="M135 80V245H338" marker-end="url(#a4)"/>
+      <text class="lab" x="235" y="238" text-anchor="middle">all marked contexts</text>
+      <path class="ln" d="M560 245H765V192" marker-end="url(#a4)"/>
+      <text class="lab" x="662" y="238" text-anchor="middle">guides starting help</text>
     </svg>
     </div>
-    <figcaption>Memory changes at only two moments: when a check is marked, and when a part is finally solved, which records the mistakes as fixed and how much help was needed. Every syllabus outcome across all nine topics now has named misconception coverage. Chatting with the tutor adds no evidence; the tutor only reads memory.</figcaption>
+    <figcaption>The active learner model is context-time BKT. Every new student starts without a skill row; the first marked attempt begins from the versioned 50% prior, and later attempts update that student's state. The model distinguishes work done alone, after help and after a shown solution. It treats copied correctness as no proof, allows explanations to create learning, and reduces stale mastery across the documented time buckets. The Socratic policy reads mastery only after enough diagnostic observations, then safely chooses a starting help level. Marker never reads history, Listener only interprets the current message, and Composer still writes only the move selected by the policy.</figcaption>
   </figure>
   <div class="two">
     <div class="card">
@@ -358,6 +366,7 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
         <li>Old evidence slowly fades, losing half its weight every 30 days.</li>
         <li>With only a few attempts, a skill stays near the student's average for that topic and is marked as unsure.</li>
         <li>The tutor gets a 4-line summary like the card on the left. It uses it to choose where help starts and how to word it.</li>
+        <li>Context-time BKT is the active skill memory. Standard BKT and the old weighted formula remain evaluation baselines and cannot directly choose a teaching move.</li>
       </ul>
     </div>
   </div>
@@ -406,6 +415,12 @@ footer { border-top: 1px solid var(--line); padding-top: 16px; color: var(--mute
   <span class="eyebrow">What changed</span>
   <h2>Backend updates</h2>
   <ol class="changes">
+    <li><time datetime="2026-11-27">27 Nov 2026</time><div><h3>Context-time BKT became the active learner model</h3>
+      <p>New students now begin each skill from the versioned BKT prior and build a personal state only through validated Marker attempts. The tutor reads time-adjusted BKT mastery and diagnostic confidence instead of weighted mastery. The ordered Socratic policy remains between Listener and Composer because mastery estimation cannot safely choose or write a teaching move by itself. Weighted mastery and standard BKT remain evaluation-only baselines, and the earlier fair-start experiment is preserved.</p></div></li>
+    <li><time datetime="2026-11-27">27 Nov 2026</time><div><h3>BKT now understands tutoring context and long gaps</h3>
+      <p>The first evolved shadow model distinguishes independent work, assisted work and work after a full solution. Correctness after a shown solution is not treated as proof, although the explanation can still create a learning transition. Four elapsed-time buckets model forgetting, earlier stored evidence is replayed before the first new forecast, and an audit trail records every new transition. Only future independent work scores the model, while the live tutor continues using the unchanged weighted memory.</p></div></li>
+    <li><time datetime="2026-11-27">27 Nov 2026</time><div><h3>BKT evaluation began safely in shadow mode</h3>
+      <p>Independent marked work now produces a forecast from both the active weighted memory and an isolated Bayesian Knowledge Tracing model before either sees the result. Cold-start and later personalized forecasts are kept separate. The shadow model does not read tutor chat, alter student memory shown in the app, or influence any tutoring decision.</p></div></li>
     <li><time datetime="2026-11-23">23 Nov 2026</time><div><h3>Routine background work is quieter</h3>
       <p>Typing now groups brief browser recovery updates instead of rewriting storage for every key. Opening marking and tutor history reads only the newest useful records and no longer rewrites old job rows. The frequent service heartbeat no longer occupies a database connection; a separate readiness check remains available when the database itself must be verified.</p></div></li>
     <li><time datetime="2026-11-23">23 Nov 2026</time><div><h3>Dashboards and questions use much less data</h3>

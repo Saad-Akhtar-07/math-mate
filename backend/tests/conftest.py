@@ -81,6 +81,16 @@ def client(monkeypatch):
             name = f'math_mate.{table}'
             if connection.execute('select coalesce(to_regclass(%s)::text, to_regproc(%s)::text)', (name, name)).fetchone()[0] is None:
                 connection.execute((PROJECT_ROOT / 'supabase/migrations' / filename).read_text(encoding='utf-8'))
+        # BKT was introduced under shadow table names and later promoted. Apply
+        # whichever additive stages are absent inside this rollback-only test.
+        bkt_state = connection.execute("select coalesce(to_regclass('math_mate.bkt_states'), to_regclass('math_mate.bkt_shadow_states'))").fetchone()[0]
+        if bkt_state is None:
+            connection.execute((PROJECT_ROOT / 'supabase/migrations' / '20261127000000_shadow_bkt.sql').read_text(encoding='utf-8'))
+        bkt_updates = connection.execute("select coalesce(to_regclass('math_mate.bkt_updates'), to_regclass('math_mate.bkt_shadow_updates'))").fetchone()[0]
+        if bkt_updates is None:
+            connection.execute((PROJECT_ROOT / 'supabase/migrations' / '20261127010000_context_time_bkt.sql').read_text(encoding='utf-8'))
+        if connection.execute("select to_regclass('math_mate.bkt_states')").fetchone()[0] is None:
+            connection.execute((PROJECT_ROOT / 'supabase/migrations' / '20261127020000_promote_context_bkt.sql').read_text(encoding='utf-8'))
         visual_column = connection.execute("""select 1 from information_schema.columns
             where table_schema = 'math_mate' and table_name = 'student_responses'
                 and column_name = 'visual_answer'""").fetchone()

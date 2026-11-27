@@ -8,11 +8,12 @@ import uuid
 from decimal import Decimal
 
 import pytest
+from psycopg.rows import dict_row
 
 from backend.app.ai import gateway
 from backend.app.ai.providers import fake_provider
 from backend.app.ai.types import BudgetExceeded, LLMRequest, ProviderTimeout
-from backend.app.services import assessments as assessment_service, uploads
+from backend.app.services import assessments as assessment_service, learning, uploads
 from backend.app.tutoring.part_context import build_part_context
 from helpers import save, user, user_id
 
@@ -65,6 +66,8 @@ def test_mark_tutor_resubmit_and_remember(client):
     http, connection = client
     headers = user(http)
     owner = user_id(connection, headers)
+    with connection.cursor(row_factory=dict_row) as cursor:
+        assert learning.tutor_profile(cursor, owner, {'2.5.1'})['states'] == {}
     before = {purpose: calls(connection, purpose) for purpose in ('marker', 'observer', 'composer')}
     assert save(http, headers, PART, WRONG).status_code == 200
 
@@ -98,6 +101,41 @@ def test_mark_tutor_resubmit_and_remember(client):
     states = connection.execute('''select outcome_code, attempts, independent_full_marks from math_mate.user_outcome_state
         where user_id = %s order by outcome_code''', (owner,)).fetchall()
     assert states == [('2.5.1', 2, 0), ('2.5.2', 2, 0)]
+    shadow = connection.execute('''select model_version, outcome_code, evidence_count
+        from math_mate.bkt_states where user_id = %s order by model_version, outcome_code''', (owner,)).fetchall()
+    assert shadow == [
+        ('bkt-context-time-v1', '2.5.1', 2), ('bkt-context-time-v1', '2.5.2', 2),
+        ('bkt-shadow-v1', '2.5.1', 1), ('bkt-shadow-v1', '2.5.2', 1)]
+    predictions = connection.execute('''select bkt_model_version, outcome_code, observed_correct,
+            weighted_prediction, weighted_evidence_count, bkt_evidence_count_before
+        from math_mate.learner_model_predictions where user_id = %s
+        order by bkt_model_version, outcome_code''', (owner,)).fetchall()
+    assert [(version, code, correct, float(weighted), weighted_count, bkt_count)
+            for version, code, correct, weighted, weighted_count, bkt_count in predictions] == [
+        ('bkt-context-time-v1', '2.5.1', False, 0.5, 0, 0),
+        ('bkt-context-time-v1', '2.5.2', False, 0.5, 0, 0),
+        ('bkt-shadow-v1', '2.5.1', False, 0.5, 0, 0),
+        ('bkt-shadow-v1', '2.5.2', False, 0.5, 0, 0)]
+    updates = connection.execute('''select attempt_context, observation_used, count(*)
+        from math_mate.bkt_updates where user_id = %s
+        group by attempt_context, observation_used order by attempt_context''', (owner,)).fetchall()
+    assert updates == [('assisted', True, 2), ('independent', True, 2)]
+    with connection.cursor(row_factory=dict_row) as cursor:
+        profile = learning.tutor_profile(cursor, owner, {'2.5.1'})
+    active = profile['states']['2.5.1']
+    contextual_mastery = float(connection.execute('''select mastery from math_mate.bkt_states
+        where user_id = %s and outcome_code = '2.5.1' and model_version = 'bkt-context-time-v1' ''',
+        (owner,)).fetchone()[0])
+    weighted_mastery = float(connection.execute('''select mastery from math_mate.user_outcome_state
+        where user_id = %s and outcome_code = '2.5.1' ''', (owner,)).fetchone()[0])
+    assert active['mastery'] == pytest.approx(contextual_mastery)
+    assert active['mastery'] != weighted_mastery
+    assert active['confidence'] == 0.5 and active['attempts'] == 2
+    connection.execute('''update math_mate.bkt_states set last_evidence_at = now() - interval '61 days'
+        where user_id = %s and outcome_code = '2.5.1' and model_version = 'bkt-context-time-v1' ''', (owner,))
+    with connection.cursor(row_factory=dict_row) as cursor:
+        forgotten = learning.tutor_profile(cursor, owner, {'2.5.1'})['states']['2.5.1']
+    assert forgotten['mastery'] == pytest.approx(contextual_mastery * 0.9, abs=1e-6)
     # Two Marker calls, one Observer call for the typed message, one Composer call for the hint.
     assert {purpose: calls(connection, purpose) - before[purpose] for purpose in before} == {'marker': 2, 'observer': 1, 'composer': 1}
 
@@ -121,6 +159,43 @@ def test_help_before_submitting_makes_the_attempt_assisted(client):
     assert connection.execute('''select a.independent from math_mate.assessments a
         join math_mate.response_submissions s on s.id = a.submission_id
         join math_mate.student_responses r on r.id = s.response_id where r.user_id = %s''', (owner,)).fetchone()[0] is False
+    assert connection.execute('''select distinct attempt_context from math_mate.bkt_updates
+        where user_id = %s''', (owner,)).fetchall() == [('assisted',)]
+    assert connection.execute('''select count(*) from math_mate.learner_model_predictions
+        where user_id = %s''', (owner,)).fetchone()[0] == 0
+
+
+def test_work_after_a_shown_solution_updates_learning_but_not_correctness_evidence(client):
+    http, connection = client
+    headers = user(http)
+    owner = user_id(connection, headers)
+    save(http, headers, PART, WRONG)
+    assess(http, headers, 1)
+    connection.execute('''update math_mate.tutor_sessions set solution_shown = true
+        where user_id = %s and question_part_id = %s and state = 'active' ''', (owner, PART))
+    connection.execute('''insert into math_mate.tutor_turns
+        (session_id, user_id, client_message_id, intent, learner_message, teaching_move,
+         assistance, tutor_message, status, completed_at)
+        select id, user_id, gen_random_uuid(), 'message', 'Please show the solution', 'full_solution',
+            5, 'A complete solution was shown.', 'completed', now()
+        from math_mate.tutor_sessions
+        where user_id = %s and question_part_id = %s and state = 'active' ''', (owner, PART))
+    revision = save(http, headers, PART, RIGHT, 1).json()['revision']
+    assess(http, headers, revision)
+
+    updates = connection.execute('''select outcome_code, observed_correct, observation_used,
+            mastery_after_forgetting, mastery_after_observation, mastery_after
+        from math_mate.bkt_updates
+        where user_id = %s and attempt_context = 'after_solution' order by outcome_code''', (owner,)).fetchall()
+    assert len(updates) == 2
+    for _, observed_correct, observation_used, after_forgetting, after_observation, mastery_after in updates:
+        assert observed_correct is True
+        assert observation_used is False
+        assert after_observation == after_forgetting
+        assert mastery_after > after_observation
+    with connection.cursor(row_factory=dict_row) as cursor:
+        profile = learning.tutor_profile(cursor, owner, {'2.5.1'})
+    assert profile['states']['2.5.1']['confidence'] == 0.333
 
 
 def test_retries_duplicates_and_concurrent_turns(client):
